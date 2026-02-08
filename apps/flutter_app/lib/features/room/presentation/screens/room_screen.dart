@@ -262,7 +262,7 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
                             ),
                           ),
                         ],
-                        // Host indicator
+                        // Host indicator (for current user)
                         if (isHost) ...[
                           const SizedBox(width: 8),
                           Container(
@@ -278,7 +278,7 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
                                 Icon(Icons.star, color: AppColors.primary, size: 12),
                                 SizedBox(width: 4),
                                 Text(
-                                  'HOST',
+                                  'YOU',
                                   style: TextStyle(
                                     color: AppColors.primary,
                                     fontSize: 10,
@@ -291,6 +291,46 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
                         ],
                       ],
                     ),
+                    // Show host info (visible to everyone)
+                    const SizedBox(height: 4),
+                    if (room.host != null)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.star,
+                            color: Colors.amber.withOpacity(0.8),
+                            size: 14,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Hosted by ${room.host!.displayName}',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.7),
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      )
+                    else if (room.isAiHosted)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.smart_toy,
+                            color: Colors.cyan.withOpacity(0.8),
+                            size: 14,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'AI Hosted • Claim to become host',
+                            style: TextStyle(
+                              color: Colors.cyan.withOpacity(0.7),
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
                   ],
                 ),
               ),

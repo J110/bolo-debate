@@ -150,7 +150,8 @@ class LiveKitService extends ChangeNotifier {
   
   void _startAudioLevelPolling() {
     _audioLevelTimer?.cancel();
-    _audioLevelTimer = Timer.periodic(const Duration(milliseconds: 33), (_) { // ~30fps
+    // Poll at 60fps for minimal lag
+    _audioLevelTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
       if (_room == null || !_isConnected) return;
       
       double maxLevel = 0.0;
@@ -171,8 +172,8 @@ class LiveKitService extends ChangeNotifier {
         }
       }
       
-      // Smooth the audio level
-      _audioLevel = _audioLevel * 0.6 + maxLevel * 0.4;
+      // Minimal smoothing for near-instant response
+      _audioLevel = _audioLevel * 0.3 + maxLevel * 0.7;
       
       // Generate frequency-like bands based on audio level
       _generateFrequencyBands(maxLevel);
@@ -187,53 +188,54 @@ class LiveKitService extends ChangeNotifier {
   }
   
   // Generate simulated frequency bands that look like voice spectrum
+  // Optimized for minimal lag - near real-time response
   void _generateFrequencyBands(double level) {
-    // Voice frequencies are typically concentrated in lower-mid range
-    // We'll create a spectrum that responds realistically to voice
-    
-    final isActive = level > 0.05;
-    final normalizedLevel = (level * 2.0).clamp(0.0, 1.0);
+    final isActive = level > 0.03;
+    final normalizedLevel = (level * 2.5).clamp(0.0, 1.0);
     
     for (int i = 0; i < 20; i++) {
       double targetHeight;
       
       if (isActive) {
-        // Voice frequency distribution - most energy in low-mid frequencies
-        // Band 0-5: Low frequencies (bass, fundamental)
-        // Band 6-12: Mid frequencies (voice harmonics, most energy)
+        // Voice frequency distribution
+        // Band 0-4: Low frequencies (bass, fundamental)
+        // Band 5-12: Mid frequencies (voice harmonics, most energy)
         // Band 13-19: High frequencies (consonants, sibilance)
         
         double baseEnergy;
+        double variance;
+        
         if (i < 5) {
-          // Low frequencies - moderate energy, slow movement
-          baseEnergy = 0.4 + (_random.nextDouble() * 0.3);
+          // Low frequencies - moderate energy
+          baseEnergy = 0.5;
+          variance = _random.nextDouble() * 0.25;
         } else if (i < 13) {
           // Mid frequencies - highest energy for voice
-          baseEnergy = 0.6 + (_random.nextDouble() * 0.4);
+          baseEnergy = 0.7;
+          variance = _random.nextDouble() * 0.3;
         } else {
-          // High frequencies - lower energy, fast movement
-          baseEnergy = 0.2 + (_random.nextDouble() * 0.5);
+          // High frequencies - responsive to consonants
+          baseEnergy = 0.35;
+          variance = _random.nextDouble() * 0.4;
         }
         
-        // Add time-based variation for natural movement
-        final timeVariation = math.sin((_frameCount * 0.15) + (i * 0.5)) * 0.15;
-        final randomVariation = (_random.nextDouble() - 0.5) * 0.2;
+        // Minimal time variation for more direct voice response
+        final timeVariation = math.sin((_frameCount * 0.3) + (i * 0.4)) * 0.08;
         
-        targetHeight = (baseEnergy + timeVariation + randomVariation) * normalizedLevel;
+        targetHeight = (baseEnergy + variance + timeVariation) * normalizedLevel;
         targetHeight = targetHeight.clamp(0.05, 1.0);
       } else {
-        // When silent, bars should be at minimum
-        targetHeight = 0.05 + (_random.nextDouble() * 0.03);
+        // When silent, bars at minimum
+        targetHeight = 0.05;
       }
       
-      // Smooth transition to target
-      // Different smoothing for rise vs fall (faster rise, slower fall)
+      // Near-instant response - minimal smoothing
       if (targetHeight > _frequencyBands[i]) {
-        // Rising - faster response
-        _frequencyBands[i] = _frequencyBands[i] * 0.3 + targetHeight * 0.7;
+        // Rising - almost instant (95% of target)
+        _frequencyBands[i] = _frequencyBands[i] * 0.05 + targetHeight * 0.95;
       } else {
-        // Falling - slower decay
-        _frequencyBands[i] = _frequencyBands[i] * 0.7 + targetHeight * 0.3;
+        // Falling - quick decay (80% toward target)
+        _frequencyBands[i] = _frequencyBands[i] * 0.2 + targetHeight * 0.8;
       }
     }
   }
