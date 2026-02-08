@@ -222,42 +222,38 @@ class _SideBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final children = [
-      Container(
-        width: 24,
-        height: 24,
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Center(
-          child: Text(
-            '$count',
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Column(
+        crossAxisAlignment: alignRight ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
             style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
               color: color,
             ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: alignRight ? TextAlign.end : TextAlign.start,
           ),
-        ),
-      ),
-      const SizedBox(width: 8),
-      Expanded(
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: color,
+          const SizedBox(height: 2),
+          Text(
+            '$count',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: color.withOpacity(0.7),
+            ),
           ),
-          overflow: TextOverflow.ellipsis,
-          textAlign: alignRight ? TextAlign.end : TextAlign.start,
-        ),
+        ],
       ),
-    ];
-
-    return Row(
-      children: alignRight ? children.reversed.toList() : children,
     );
   }
 }

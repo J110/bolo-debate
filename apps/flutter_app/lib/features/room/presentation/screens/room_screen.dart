@@ -23,6 +23,7 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
   Timer? _timer;
+  final List<_FloatingReaction> _floatingReactions = [];
   
   ParticipantSide _getSelectedSide() {
     switch (widget.selectedSide) {
@@ -42,6 +43,14 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
     });
+    // Auto-join room after widget is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _joinRoom();
+    });
+  }
+  
+  Future<void> _joinRoom() async {
+    await ref.read(liveRoomProvider(widget.roomId).notifier).joinRoom(widget.selectedSide);
   }
 
   @override
@@ -65,30 +74,41 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
       child: Scaffold(
         backgroundColor: AppColors.backgroundDark,
         body: SafeArea(
-          child: roomState.isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : roomState.room == null
-                  ? const Center(child: Text('Room not found', style: TextStyle(color: Colors.white)))
-                  : Column(
-                      children: [
-                        // Header
-                        _buildHeader(roomState.room!),
-                        
-                        // Audio Visualizer
-                        _AudioVisualizer(),
-                        
-                        // Participants grid
-                        Expanded(
-                          child: _buildParticipantsArea(roomState),
+          child: Stack(
+            children: [
+              // Main content
+              roomState.isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : roomState.room == null
+                      ? const Center(child: Text('Room not found', style: TextStyle(color: Colors.white)))
+                      : Column(
+                          children: [
+                            // Header
+                            _buildHeader(roomState.room!),
+                            
+                            // Audio Visualizer
+                            _AudioVisualizer(),
+                            
+                            // Participants grid
+                            Expanded(
+                              child: _buildParticipantsArea(roomState),
+                            ),
+                            
+                            // Chat section
+                            _buildChatSection(roomState),
+                            
+                            // Bottom controls
+                            _buildBottomControls(roomState, currentUser?.id),
+                          ],
                         ),
-                        
-                        // Chat section
-                        _buildChatSection(roomState),
-                        
-                        // Bottom controls
-                        _buildBottomControls(roomState, currentUser?.id),
-                      ],
-                    ),
+              // Floating reactions overlay
+              ..._floatingReactions.map((reaction) => _FloatingReactionWidget(
+                key: ValueKey(reaction.id),
+                emoji: reaction.emoji,
+                startX: reaction.startX,
+              )),
+            ],
+          ),
         ),
       ),
     );
@@ -395,7 +415,7 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
 
   Widget _buildChatSection(LiveRoomState state) {
     return Container(
-      height: 150,
+      height: 220,
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(0.3),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
@@ -529,6 +549,7 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
             children: AppConstants.reactions.map((emoji) {
               return GestureDetector(
                 onTap: () {
+                  _addFloatingReaction(emoji);
                   ref.read(liveRoomProvider(widget.roomId).notifier).sendReaction(emoji);
                   Navigator.pop(context);
                 },
@@ -539,6 +560,25 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
         );
       },
     );
+  }
+  
+  void _addFloatingReaction(String emoji) {
+    final reaction = _FloatingReaction(
+      emoji: emoji,
+      id: DateTime.now().millisecondsSinceEpoch,
+      startX: 50 + (DateTime.now().millisecond % 200).toDouble(),
+    );
+    setState(() {
+      _floatingReactions.add(reaction);
+    });
+    // Remove after animation
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() {
+          _floatingReactions.removeWhere((r) => r.id == reaction.id);
+        });
+      }
+    });
   }
 
   void _showLeaveDialog() {
@@ -943,6 +983,85 @@ class _AudioVisualizerState extends State<_AudioVisualizer> with SingleTickerPro
           );
         }),
       ),
+    );
+  }
+}
+
+// Floating reaction data class
+class _FloatingReaction {
+  final String emoji;
+  final int id;
+  final double startX;
+  
+  _FloatingReaction({required this.emoji, required this.id, required this.startX});
+}
+
+// Floating reaction animation widget
+class _FloatingReactionWidget extends StatefulWidget {
+  final String emoji;
+  final double startX;
+  
+  const _FloatingReactionWidget({super.key, required this.emoji, required this.startX});
+  
+  @override
+  State<_FloatingReactionWidget> createState() => _FloatingReactionWidgetState();
+}
+
+class _FloatingReactionWidgetState extends State<_FloatingReactionWidget> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _positionAnimation;
+  late Animation<double> _opacityAnimation;
+  late Animation<double> _scaleAnimation;
+  
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(seconds: 3),
+      vsync: this,
+    );
+    
+    _positionAnimation = Tween<double>(begin: 0, end: 400).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+    
+    _opacityAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(parent: _controller, curve: const Interval(0.6, 1.0)),
+    );
+    
+    _scaleAnimation = Tween<double>(begin: 0.5, end: 1.5).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.elasticOut),
+    );
+    
+    _controller.forward();
+  }
+  
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Positioned(
+          bottom: 150 + _positionAnimation.value,
+          left: widget.startX + (math.sin(_positionAnimation.value / 50) * 30),
+          child: Opacity(
+            opacity: _opacityAnimation.value,
+            child: Transform.scale(
+              scale: _scaleAnimation.value,
+              child: Text(
+                widget.emoji,
+                style: const TextStyle(fontSize: 40),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

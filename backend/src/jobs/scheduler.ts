@@ -17,6 +17,7 @@ export function startScheduler(): void {
     try {
       await checkAndStartScheduledRooms();
       await checkAndEndExpiredRooms();
+      await cleanupStaleRooms();
     } catch (error) {
       console.error('Error in room lifecycle job:', error);
     }
@@ -109,6 +110,51 @@ async function sendBotSuggestions(): Promise<void> {
       }
     } catch (error) {
       console.error(`Error sending bot suggestion to room ${room.id}:`, error);
+    }
+  }
+}
+
+// Clean up stale rooms (live for over 45 minutes without extension by human host)
+async function cleanupStaleRooms(): Promise<void> {
+  const maxLiveTime = 45 * 60 * 1000; // 45 minutes max for AI-hosted rooms
+  const cutoffTime = new Date(Date.now() - maxLiveTime);
+  
+  // Find rooms that have been live too long
+  const staleRooms = await prisma.room.findMany({
+    where: {
+      status: 'LIVE',
+      isAiHosted: true,
+      startedAt: { lte: cutoffTime },
+    },
+    select: { id: true },
+  });
+  
+  if (staleRooms.length > 0) {
+    console.log(`Cleaning up ${staleRooms.length} stale AI-hosted rooms`);
+    
+    for (const room of staleRooms) {
+      try {
+        await prisma.room.update({
+          where: { id: room.id },
+          data: { status: 'ENDED' },
+        });
+        
+        await prisma.roomParticipant.updateMany({
+          where: { roomId: room.id, leftAt: null },
+          data: { leftAt: new Date() },
+        });
+        
+        broadcastToRoom(room.id, {
+          type: 'room:ended',
+          roomId: room.id,
+          payload: {},
+          timestamp: new Date().toISOString(),
+        });
+        
+        console.log(`Ended stale room: ${room.id}`);
+      } catch (error) {
+        console.error(`Error ending stale room ${room.id}:`, error);
+      }
     }
   }
 }

@@ -73,11 +73,56 @@ signals.forEach((signal) => {
   });
 });
 
+// Cleanup old rooms on startup
+async function startupCleanup() {
+  const { prisma } = await import('./config/database.js');
+  
+  console.log('🧹 Running startup cleanup...');
+  
+  // End all rooms that have been live for over 45 minutes
+  const maxLiveTime = 45 * 60 * 1000;
+  const cutoffTime = new Date(Date.now() - maxLiveTime);
+  
+  const staleResult = await prisma.room.updateMany({
+    where: {
+      status: 'LIVE',
+      startedAt: { lte: cutoffTime },
+    },
+    data: { status: 'ENDED' },
+  });
+  
+  if (staleResult.count > 0) {
+    console.log(`  Ended ${staleResult.count} stale live rooms`);
+  }
+  
+  // Delete old ended rooms (older than 24 hours)
+  const oldRoomsCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const deletedResult = await prisma.room.deleteMany({
+    where: {
+      status: 'ENDED',
+      updatedAt: { lte: oldRoomsCutoff },
+    },
+  });
+  
+  if (deletedResult.count > 0) {
+    console.log(`  Deleted ${deletedResult.count} old ended rooms`);
+  }
+  
+  // Now ensure minimum rooms exist
+  const { ensureMinimumRoomsPerRegion } = await import('./services/room.js');
+  await ensureMinimumRoomsPerRegion();
+  
+  console.log('✅ Startup cleanup complete');
+}
+
 // Start server
 async function start() {
   try {
     // Connect to database
     await connectDatabase();
+    
+    // Run startup cleanup
+    await startupCleanup();
 
     // Start the scheduler
     startScheduler();
