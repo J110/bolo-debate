@@ -31,6 +31,7 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
   final LiveKitService _liveKitService = LiveKitService();
   bool _isLiveKitConnected = false;
   double _currentAudioLevel = 0.0;
+  List<double> _frequencyBands = List.filled(20, 0.0);
   
   ParticipantSide _getSelectedSide() {
     switch (widget.selectedSide) {
@@ -60,6 +61,15 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
       }
     };
     
+    // Listen for frequency data changes from LiveKit
+    _liveKitService.onFrequencyDataChanged = (bands) {
+      if (mounted) {
+        setState(() {
+          _frequencyBands = bands;
+        });
+      }
+    };
+    
     // Listen for LiveKit state changes
     _liveKitService.addListener(_onLiveKitUpdate);
     
@@ -74,6 +84,7 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
       setState(() {
         _isLiveKitConnected = _liveKitService.isConnected;
         _currentAudioLevel = _liveKitService.audioLevel;
+        _frequencyBands = _liveKitService.frequencyBands;
       });
     }
   }
@@ -146,10 +157,10 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
                             // Header
                             _buildHeader(roomState.room!),
                             
-                            // Audio Visualizer - connected to LiveKit audio levels
+                            // Audio Visualizer - connected to LiveKit frequency analysis
                             _AudioVisualizer(
                               isActive: _isLiveKitConnected,
-                              audioLevel: _currentAudioLevel,
+                              frequencyBands: _frequencyBands,
                             ),
                             
                             // Participants grid
@@ -248,6 +259,33 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
                             style: TextStyle(
                               color: timeRemaining.inMinutes < 5 ? AppColors.warning : Colors.grey,
                               fontSize: 12,
+                            ),
+                          ),
+                        ],
+                        // Host indicator
+                        if (isHost) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: AppColors.primary.withOpacity(0.5)),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.star, color: AppColors.primary, size: 12),
+                                SizedBox(width: 4),
+                                Text(
+                                  'HOST',
+                                  style: TextStyle(
+                                    color: AppColors.primary,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -536,37 +574,79 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
   Widget _buildBottomControls(LiveRoomState state, String? currentUserId) {
     // Use LiveKit state for mute if connected, otherwise fallback to state
     final isMuted = _isLiveKitConnected ? _liveKitService.isMuted : state.isMuted;
+    final currentUser = ref.watch(currentUserProvider);
+    final isHost = state.room?.host?.id == currentUser?.id;
+    
+    // Can only unmute if: 1) is host, OR 2) hand is raised
+    final canSpeak = isHost || state.handRaised;
     
     return Container(
       padding: const EdgeInsets.all(16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          // Mute button
+          // Mute button - disabled if not allowed to speak
           _ControlButton(
             icon: isMuted ? Icons.mic_off : Icons.mic,
-            label: isMuted ? 'Unmute' : 'Mute',
-            color: isMuted ? Colors.red : Colors.green,
-            onTap: () async {
-              // Toggle LiveKit audio
-              if (_isLiveKitConnected) {
-                await _liveKitService.toggleMicrophone();
-              }
-              // Also update backend state
-              ref.read(liveRoomProvider(widget.roomId).notifier).toggleMute(!isMuted);
-              setState(() {});
-            },
+            label: isMuted 
+                ? (canSpeak ? 'Unmute' : 'Raise Hand') 
+                : 'Mute',
+            color: isMuted 
+                ? (canSpeak ? Colors.red : Colors.grey) 
+                : Colors.green,
+            onTap: canSpeak || !isMuted
+                ? () {
+                    if (isMuted && !canSpeak) {
+                      // Show hint to raise hand first
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Raise your hand first to request to speak'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                      return;
+                    }
+                    
+                    // Toggle LiveKit audio
+                    if (_isLiveKitConnected) {
+                      _liveKitService.toggleMicrophone();
+                    }
+                    // Also update backend state
+                    ref.read(liveRoomProvider(widget.roomId).notifier).toggleMute(!isMuted);
+                    setState(() {});
+                  }
+                : null,
           ),
           
-          // Hand raise button
-          _ControlButton(
-            icon: state.handRaised ? Icons.front_hand : Icons.front_hand_outlined,
-            label: state.handRaised ? 'Lower' : 'Raise',
-            color: state.handRaised ? AppColors.warning : Colors.white,
-            onTap: () {
-              ref.read(liveRoomProvider(widget.roomId).notifier).raiseHand(!state.handRaised);
-            },
-          ),
+          // Hand raise button (not needed for hosts)
+          if (!isHost)
+            _ControlButton(
+              icon: state.handRaised ? Icons.front_hand : Icons.front_hand_outlined,
+              label: state.handRaised ? 'Lower' : 'Raise',
+              color: state.handRaised ? AppColors.warning : Colors.white,
+              onTap: () {
+                final newRaised = !state.handRaised;
+                
+                // If lowering hand, also mute
+                if (!newRaised && !isMuted) {
+                  if (_isLiveKitConnected) {
+                    _liveKitService.disableMicrophone();
+                  }
+                  ref.read(liveRoomProvider(widget.roomId).notifier).toggleMute(true);
+                }
+                
+                ref.read(liveRoomProvider(widget.roomId).notifier).raiseHand(newRaised);
+                setState(() {});
+              },
+            )
+          else
+            // Show host indicator instead of hand raise
+            _ControlButton(
+              icon: Icons.star,
+              label: 'Host',
+              color: AppColors.primary,
+              onTap: null, // Not clickable, just informational
+            ),
           
           // Reactions button
           _ControlButton(
@@ -938,13 +1018,13 @@ class _ControlButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color? color;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const _ControlButton({
     required this.icon,
     required this.label,
     this.color,
-    required this.onTap,
+    this.onTap,
   });
 
   @override
@@ -978,117 +1058,90 @@ class _ControlButton extends StatelessWidget {
 }
 
 // Audio Visualizer Widget - connected to real LiveKit audio
-class _AudioVisualizer extends StatefulWidget {
+// Frequency spectrum audio visualizer
+class _AudioVisualizer extends StatelessWidget {
   final bool isActive;
-  final double audioLevel;
+  final List<double> frequencyBands;
   
   const _AudioVisualizer({
     this.isActive = false,
-    this.audioLevel = 0.0,
+    this.frequencyBands = const [],
   });
   
   @override
-  State<_AudioVisualizer> createState() => _AudioVisualizerState();
-}
-
-class _AudioVisualizerState extends State<_AudioVisualizer> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  final List<double> _barHeights = List.generate(20, (_) => 0.2);
-  
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 100),
-    )..repeat();
-    _controller.addListener(_updateBars);
-  }
-  
-  void _updateBars() {
-    if (mounted) {
-      setState(() {
-        for (int i = 0; i < _barHeights.length; i++) {
-          if (widget.isActive && widget.audioLevel > 0.1) {
-            // Use real audio level with some variance per bar
-            final variance = _pseudoRandom(i + DateTime.now().millisecond) * 0.4;
-            _barHeights[i] = (widget.audioLevel + variance).clamp(0.1, 1.0);
-          } else if (widget.isActive) {
-            // When connected but no audio, show subtle idle animation
-            _barHeights[i] = 0.15 + (_pseudoRandom(i + DateTime.now().millisecond) * 0.1);
-          } else {
-            // Not connected - show waiting animation
-            final wave = math.sin((DateTime.now().millisecondsSinceEpoch / 300) + (i * 0.3));
-            _barHeights[i] = 0.2 + (wave.abs() * 0.15);
-          }
-        }
-      });
-    }
-  }
-  
-  double _pseudoRandom(int seed) {
-    return ((seed * 1103515245 + 12345) % 100) / 100.0;
-  }
-  
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-  
-  @override
   Widget build(BuildContext context) {
-    // Change color based on connection state
-    final baseHue = widget.isActive ? 180.0 : 220.0; // Cyan when active, blue when waiting
+    // Use provided frequency bands or default to 20 bars
+    final bands = frequencyBands.isNotEmpty 
+        ? frequencyBands 
+        : List.filled(20, 0.1);
+    
+    // Calculate if there's significant audio activity
+    final avgLevel = bands.reduce((a, b) => a + b) / bands.length;
+    final hasAudio = avgLevel > 0.15;
     
     return Container(
-      height: 60,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      height: 70,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Column(
         children: [
           // Connection status indicator
-          if (!widget.isActive)
-            Text(
-              'Connecting to audio...',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.5),
-                fontSize: 10,
+          if (!isActive)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                'Connecting to audio...',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.5),
+                  fontSize: 10,
+                ),
               ),
             ),
-          const SizedBox(height: 4),
-          // Visualizer bars
+          // Frequency spectrum visualizer
           Expanded(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.end,
-              children: List.generate(_barHeights.length, (index) {
-                final hue = baseHue + (index * 8);
+              children: List.generate(bands.length, (index) {
+                // Color gradient from cyan (low freq) to purple (high freq)
+                // Low frequencies: cyan/teal
+                // Mid frequencies: blue/indigo  
+                // High frequencies: purple/magenta
+                final hue = 180.0 + (index * 9); // 180 (cyan) to 360 (magenta)
+                
+                // Brightness based on activity
+                final lightness = isActive && hasAudio ? 0.6 : 0.4;
+                final saturation = isActive ? 0.85 : 0.5;
+                
                 final color = HSLColor.fromAHSL(
-                  widget.isActive ? 1.0 : 0.5,
+                  1.0,
                   hue % 360,
-                  0.8,
-                  0.6,
+                  saturation,
+                  lightness,
                 ).toColor();
                 
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 80),
-                  width: 4,
-                  margin: const EdgeInsets.symmetric(horizontal: 2),
-                  height: 8 + (_barHeights[index] * 30),
+                // Bar height from frequency data
+                final barHeight = bands[index].clamp(0.05, 1.0);
+                
+                return Container(
+                  width: 5,
+                  margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                  height: 6 + (barHeight * 44), // Min 6, max 50
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.bottomCenter,
                       end: Alignment.topCenter,
                       colors: [
-                        color.withOpacity(0.4),
+                        color.withOpacity(0.3),
+                        color.withOpacity(0.7),
                         color,
                       ],
+                      stops: const [0.0, 0.5, 1.0],
                     ),
-                    borderRadius: BorderRadius.circular(2),
-                    boxShadow: widget.isActive && widget.audioLevel > 0.3 ? [
+                    borderRadius: BorderRadius.circular(3),
+                    boxShadow: isActive && barHeight > 0.4 ? [
                       BoxShadow(
-                        color: color.withOpacity(0.6),
-                        blurRadius: 6,
+                        color: color.withOpacity(0.5),
+                        blurRadius: 8,
                         spreadRadius: 1,
                       ),
                     ] : null,

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:livekit_client/livekit_client.dart';
 import '../constants/app_constants.dart';
@@ -16,18 +17,29 @@ class LiveKitService extends ChangeNotifier {
   Timer? _audioLevelTimer;
   EventsListener<RoomEvent>? _roomListener;
   
+  // Frequency bands for visualizer (simulated from audio level)
+  // We'll create 20 frequency bands that respond to the audio level
+  List<double> _frequencyBands = List.filled(20, 0.0);
+  
   // Store speaking states per participant
   final Map<String, bool> _speakingStates = {};
+  
+  // For smooth frequency animation
+  final math.Random _random = math.Random();
+  double _lastAudioLevel = 0.0;
+  int _frameCount = 0;
   
   // Callbacks
   Function(List<RemoteParticipant>)? onParticipantsChanged;
   Function(double)? onAudioLevelChanged;
+  Function(List<double>)? onFrequencyDataChanged;
 
   bool get isConnected => _isConnected;
   bool get isMuted => _isMuted;
   bool get isConnecting => _isConnecting;
   String? get error => _error;
   double get audioLevel => _audioLevel;
+  List<double> get frequencyBands => _frequencyBands;
   Room? get room => _room;
   LocalParticipant? get localParticipant => _localParticipant;
   
@@ -138,7 +150,7 @@ class LiveKitService extends ChangeNotifier {
   
   void _startAudioLevelPolling() {
     _audioLevelTimer?.cancel();
-    _audioLevelTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
+    _audioLevelTimer = Timer.periodic(const Duration(milliseconds: 33), (_) { // ~30fps
       if (_room == null || !_isConnected) return;
       
       double maxLevel = 0.0;
@@ -159,13 +171,71 @@ class LiveKitService extends ChangeNotifier {
         }
       }
       
-      // Smooth the audio level changes
-      if ((maxLevel - _audioLevel).abs() > 0.01) {
-        _audioLevel = _audioLevel * 0.7 + maxLevel * 0.3; // Smooth transition
-        onAudioLevelChanged?.call(_audioLevel);
-        notifyListeners();
-      }
+      // Smooth the audio level
+      _audioLevel = _audioLevel * 0.6 + maxLevel * 0.4;
+      
+      // Generate frequency-like bands based on audio level
+      _generateFrequencyBands(maxLevel);
+      
+      _lastAudioLevel = maxLevel;
+      _frameCount++;
+      
+      onAudioLevelChanged?.call(_audioLevel);
+      onFrequencyDataChanged?.call(_frequencyBands);
+      notifyListeners();
     });
+  }
+  
+  // Generate simulated frequency bands that look like voice spectrum
+  void _generateFrequencyBands(double level) {
+    // Voice frequencies are typically concentrated in lower-mid range
+    // We'll create a spectrum that responds realistically to voice
+    
+    final isActive = level > 0.05;
+    final normalizedLevel = (level * 2.0).clamp(0.0, 1.0);
+    
+    for (int i = 0; i < 20; i++) {
+      double targetHeight;
+      
+      if (isActive) {
+        // Voice frequency distribution - most energy in low-mid frequencies
+        // Band 0-5: Low frequencies (bass, fundamental)
+        // Band 6-12: Mid frequencies (voice harmonics, most energy)
+        // Band 13-19: High frequencies (consonants, sibilance)
+        
+        double baseEnergy;
+        if (i < 5) {
+          // Low frequencies - moderate energy, slow movement
+          baseEnergy = 0.4 + (_random.nextDouble() * 0.3);
+        } else if (i < 13) {
+          // Mid frequencies - highest energy for voice
+          baseEnergy = 0.6 + (_random.nextDouble() * 0.4);
+        } else {
+          // High frequencies - lower energy, fast movement
+          baseEnergy = 0.2 + (_random.nextDouble() * 0.5);
+        }
+        
+        // Add time-based variation for natural movement
+        final timeVariation = math.sin((_frameCount * 0.15) + (i * 0.5)) * 0.15;
+        final randomVariation = (_random.nextDouble() - 0.5) * 0.2;
+        
+        targetHeight = (baseEnergy + timeVariation + randomVariation) * normalizedLevel;
+        targetHeight = targetHeight.clamp(0.05, 1.0);
+      } else {
+        // When silent, bars should be at minimum
+        targetHeight = 0.05 + (_random.nextDouble() * 0.03);
+      }
+      
+      // Smooth transition to target
+      // Different smoothing for rise vs fall (faster rise, slower fall)
+      if (targetHeight > _frequencyBands[i]) {
+        // Rising - faster response
+        _frequencyBands[i] = _frequencyBands[i] * 0.3 + targetHeight * 0.7;
+      } else {
+        // Falling - slower decay
+        _frequencyBands[i] = _frequencyBands[i] * 0.7 + targetHeight * 0.3;
+      }
+    }
   }
 
   void _onRoomUpdate() {
