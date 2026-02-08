@@ -1,8 +1,6 @@
-import RedisClient from 'ioredis';
+import Redis from 'ioredis';
 import { config } from './index.js';
 import { EventEmitter } from 'events';
-
-type RedisInstance = InstanceType<typeof RedisClient>;
 
 // In-memory store for local development
 class MemoryStore extends EventEmitter {
@@ -63,9 +61,9 @@ class MemoryStore extends EventEmitter {
 // Check if we should use memory store
 const useMemory = config.redis.url === 'memory' || !config.redis.url;
 
-let redis: RedisInstance | MemoryStore;
-let redisSub: RedisInstance | MemoryStore;
-let redisPub: RedisInstance | MemoryStore;
+let redis: any;
+let redisSub: any;
+let redisPub: any;
 
 if (useMemory) {
   console.log('📦 Using in-memory store (no Redis required)');
@@ -74,6 +72,9 @@ if (useMemory) {
   redisSub = memStore;
   redisPub = memStore;
 } else {
+  // @ts-ignore - ioredis typing issue with ESM
+  const RedisClient = Redis.default || Redis;
+  
   redis = new RedisClient(config.redis.url, {
     maxRetriesPerRequest: 3,
     retryStrategy(times: number) {
