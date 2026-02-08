@@ -91,7 +91,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'room',
         builder: (context, state) {
           final roomId = state.pathParameters['id']!;
-          return RoomScreen(roomId: roomId);
+          final selectedSide = state.extra as String?;
+          return RoomScreen(roomId: roomId, selectedSide: selectedSide);
         },
       ),
       GoRoute(

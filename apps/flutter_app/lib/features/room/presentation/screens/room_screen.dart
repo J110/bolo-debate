@@ -11,8 +11,9 @@ import 'package:bolo_debate/shared/models/room_model.dart';
 
 class RoomScreen extends ConsumerStatefulWidget {
   final String roomId;
+  final String? selectedSide;
 
-  const RoomScreen({super.key, required this.roomId});
+  const RoomScreen({super.key, required this.roomId, this.selectedSide});
 
   @override
   ConsumerState<RoomScreen> createState() => _RoomScreenState();
@@ -22,6 +23,17 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
   Timer? _timer;
+  
+  ParticipantSide _getSelectedSide() {
+    switch (widget.selectedSide) {
+      case 'A':
+        return ParticipantSide.a;
+      case 'B':
+        return ParticipantSide.b;
+      default:
+        return ParticipantSide.neutral;
+    }
+  }
 
   @override
   void initState() {
@@ -84,12 +96,16 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
 
   Widget _buildHeader(Room room) {
     final timeRemaining = room.timeRemaining;
+    final currentUser = ref.watch(currentUserProvider);
+    final isHost = room.host?.id == currentUser?.id;
+    final canClaimHost = room.isAiHosted && room.host == null;
     
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       child: Column(
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               IconButton(
                 icon: const Icon(Icons.close, color: Colors.white),
@@ -98,18 +114,19 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
               Expanded(
                 child: Column(
                   children: [
+                    // Room title - allow multiple lines
                     Text(
                       room.title,
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                        fontSize: 15,
                       ),
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -156,22 +173,38 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
                   ],
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.more_vert, color: Colors.white),
-                onPressed: () => _showOptionsMenu(room),
-              ),
+              // Claim Host button (visible if AI-hosted and no host)
+              if (canClaimHost)
+                TextButton.icon(
+                  onPressed: () {
+                    ref.read(liveRoomProvider(widget.roomId).notifier).claimHost();
+                  },
+                  icon: const Icon(Icons.person_add, color: AppColors.warning, size: 18),
+                  label: const Text('Claim Host', style: TextStyle(color: AppColors.warning, fontSize: 12)),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    backgroundColor: AppColors.warning.withOpacity(0.1),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                )
+              else
+                IconButton(
+                  icon: const Icon(Icons.more_vert, color: Colors.white),
+                  onPressed: () => _showOptionsMenu(room),
+                ),
             ],
           ),
           
           // Sides indicator for debates
           if (room.isDebate && room.sideALabel != null && room.sideBLabel != null)
             Padding(
-              padding: const EdgeInsets.only(top: 12),
+              padding: const EdgeInsets.only(top: 8),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
                       decoration: BoxDecoration(
                         color: AppColors.sideA.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(8),
@@ -181,14 +214,16 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
                         style: const TextStyle(
                           color: AppColors.sideA,
                           fontWeight: FontWeight.bold,
-                          fontSize: 12,
+                          fontSize: 11,
                         ),
                         textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),
                   const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    padding: EdgeInsets.symmetric(horizontal: 6),
                     child: Text(
                       'VS',
                       style: TextStyle(
@@ -200,7 +235,7 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
                   ),
                   Expanded(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
                       decoration: BoxDecoration(
                         color: AppColors.sideB.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(8),
@@ -210,9 +245,11 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
                         style: const TextStyle(
                           color: AppColors.sideB,
                           fontWeight: FontWeight.bold,
-                          fontSize: 12,
+                          fontSize: 11,
                         ),
                         textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),
@@ -225,8 +262,29 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
   }
 
   Widget _buildParticipantsArea(LiveRoomState state) {
-    final participants = state.participants;
     final room = state.room;
+    final currentUser = ref.watch(currentUserProvider);
+    
+    // Build participants list, adding current user if not already present
+    List<RoomParticipant> participants = [...state.participants];
+    
+    // Add current user if joined and not in list
+    if (state.isJoined && currentUser != null) {
+      final userInList = participants.any((p) => p.user.id == currentUser.id);
+      if (!userInList) {
+        // Get the side from route extra or default to neutral
+        final selectedSide = _getSelectedSide();
+        participants.insert(0, RoomParticipant(
+          id: 'current-user',
+          user: currentUser,
+          side: selectedSide,
+          role: ParticipantRole.member,
+          handRaised: state.handRaised,
+          isMuted: state.isMuted,
+          joinedAt: DateTime.now(),
+        ));
+      }
+    }
     
     if (participants.isEmpty) {
       return const Center(

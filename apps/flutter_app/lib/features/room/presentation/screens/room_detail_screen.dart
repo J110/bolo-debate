@@ -19,6 +19,46 @@ class RoomDetailScreen extends ConsumerStatefulWidget {
 class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
   String? _selectedSide;
 
+  void _onSideSelected(BuildContext context, Room room, String side) {
+    setState(() => _selectedSide = side);
+    // Auto-show pledge dialog when side is selected for live rooms
+    if (room.isLive) {
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (mounted) {
+          _showPledgeDialog(context, room);
+        }
+      });
+    }
+  }
+
+  String _getTimeDisplayText(Room room) {
+    if (room.isLive) {
+      if (room.startedAt != null) {
+        final duration = DateTime.now().difference(room.startedAt!);
+        if (duration.inMinutes < 1) {
+          return 'Started just now';
+        } else if (duration.inMinutes < 60) {
+          return 'Live for ${duration.inMinutes} min';
+        } else {
+          return 'Live for ${duration.inHours}h ${duration.inMinutes % 60}m';
+        }
+      }
+      return 'Live now';
+    } else {
+      final now = DateTime.now();
+      final diff = room.scheduledAt.difference(now);
+      if (diff.isNegative) {
+        return 'Starting soon';
+      } else if (diff.inMinutes < 60) {
+        return 'Starts in ${diff.inMinutes} min';
+      } else if (diff.inHours < 24) {
+        return 'Starts in ${diff.inHours}h ${diff.inMinutes % 60}m';
+      } else {
+        return 'Starts ${timeago.format(room.scheduledAt, allowFromNow: true)}';
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final roomAsync = ref.watch(roomDetailProvider(widget.roomId));
@@ -45,15 +85,110 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
       ),
+      // For non-debate rooms or scheduled rooms, show a join/reminder button
       bottomNavigationBar: roomAsync.when(
         data: (room) {
           if (room == null || room.status == RoomStatus.ended) {
             return const SizedBox.shrink();
           }
-          return _buildJoinButton(context, room);
+          // For debate rooms that are live, joining is automatic on side selection
+          if (room.isDebate && room.isLive) {
+            return const SizedBox.shrink();
+          }
+          // For non-debate live rooms, show join button
+          if (!room.isDebate && room.isLive) {
+            return _buildNonDebateJoinButton(context, room);
+          }
+          // For scheduled rooms, show reminder button
+          if (room.status == RoomStatus.scheduled) {
+            return _buildReminderButton(context, room);
+          }
+          return const SizedBox.shrink();
         },
         loading: () => const SizedBox.shrink(),
         error: (_, __) => const SizedBox.shrink(),
+      ),
+    );
+  }
+
+  Widget _buildNonDebateJoinButton(BuildContext context, Room room) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: ElevatedButton(
+          onPressed: () => _showPledgeDialog(context, room),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.error,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.mic),
+              SizedBox(width: 8),
+              Text(
+                'Join Live Room',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReminderButton(BuildContext context, Room room) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: ElevatedButton(
+          onPressed: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Reminder set! We\'ll notify you when this room goes live.')),
+            );
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.notifications_active),
+              SizedBox(width: 8),
+              Text(
+                'Set Reminder',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -115,20 +250,34 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
           ],
 
           // Region and time
-          Row(
+          Wrap(
+            spacing: 16,
+            runSpacing: 8,
             children: [
-              Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
-              const SizedBox(width: 4),
-              Text(
-                '${room.region.name}, ${room.region.state}',
-                style: Theme.of(context).textTheme.bodySmall,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${room.region.name}, ${room.region.state}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
               ),
-              const SizedBox(width: 16),
-              Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
-              const SizedBox(width: 4),
-              Text(
-                room.isLive ? 'Live now' : 'Starts ${timeago.format(room.scheduledAt)}',
-                style: Theme.of(context).textTheme.bodySmall,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.access_time, size: 16, color: room.isLive ? AppColors.error : Colors.grey[600]),
+                  const SizedBox(width: 4),
+                  Text(
+                    _getTimeDisplayText(room),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: room.isLive ? AppColors.error : null,
+                      fontWeight: room.isLive ? FontWeight.w600 : null,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -137,11 +286,14 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
           // Sides for debate
           if (room.isDebate && room.sideALabel != null && room.sideBLabel != null) ...[
             Text(
-              'Choose your side',
-              style: Theme.of(context).textTheme.titleMedium,
+              room.isLive ? 'Choose your side to join' : 'Choose your side',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 12),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: _SideCard(
@@ -149,29 +301,35 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                     count: room.sideACount,
                     color: AppColors.sideA,
                     isSelected: _selectedSide == 'A',
-                    onTap: () => setState(() => _selectedSide = 'A'),
+                    onTap: () => _onSideSelected(context, room, 'A'),
                   ),
                 ),
-                const SizedBox(width: 12),
-                const Text('VS', style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(width: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 24),
+                  child: Text('VS', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey[600])),
+                ),
                 Expanded(
                   child: _SideCard(
                     label: room.sideBLabel!,
                     count: room.sideBCount,
                     color: AppColors.sideB,
                     isSelected: _selectedSide == 'B',
-                    onTap: () => setState(() => _selectedSide = 'B'),
+                    onTap: () => _onSideSelected(context, room, 'B'),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Center(
-              child: TextButton(
-                onPressed: () => setState(() => _selectedSide = 'NEUTRAL'),
-                child: Text(
-                  _selectedSide == 'NEUTRAL' ? 'Joining as neutral' : 'Join as neutral listener',
+              child: TextButton.icon(
+                onPressed: () => _onSideSelected(context, room, 'NEUTRAL'),
+                icon: Icon(
+                  _selectedSide == 'NEUTRAL' ? Icons.check_circle : Icons.remove_red_eye,
+                  size: 18,
+                  color: _selectedSide == 'NEUTRAL' ? AppColors.primary : Colors.grey,
+                ),
+                label: Text(
+                  _selectedSide == 'NEUTRAL' ? 'Joining as neutral listener' : 'Join as neutral listener',
                   style: TextStyle(
                     color: _selectedSide == 'NEUTRAL' ? AppColors.primary : Colors.grey,
                   ),
@@ -292,52 +450,6 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
     );
   }
 
-  Widget _buildJoinButton(BuildContext context, Room room) {
-    final canJoin = !room.isDebate || _selectedSide != null;
-    
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: ElevatedButton(
-          onPressed: canJoin ? () => _showPledgeDialog(context, room) : null,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: room.isLive ? AppColors.error : AppColors.primary,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(room.isLive ? Icons.mic : Icons.event),
-              const SizedBox(width: 8),
-              Text(
-                room.isLive 
-                    ? (canJoin ? 'Join Live Room' : 'Select a side to join')
-                    : 'Set Reminder',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   void _showPledgeDialog(BuildContext context, Room room) {
     showDialog(
       context: context,
@@ -441,31 +553,55 @@ class _SideCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.2) : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
+          color: isSelected ? color.withOpacity(0.15) : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected ? color : Colors.grey.withOpacity(0.3),
-            width: isSelected ? 2 : 1,
+            width: isSelected ? 3 : 1,
           ),
+          boxShadow: isSelected
+              ? [BoxShadow(color: color.withOpacity(0.3), blurRadius: 8, spreadRadius: 1)]
+              : null,
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
+            // Full text display with wrapping
             Text(
               label,
               style: TextStyle(
                 fontWeight: FontWeight.bold,
+                fontSize: 14,
                 color: isSelected ? color : null,
               ),
               textAlign: TextAlign.center,
+              // Allow text to wrap to multiple lines
+              softWrap: true,
             ),
-            const SizedBox(height: 8),
-            Text(
-              '$count joined',
-              style: Theme.of(context).textTheme.bodySmall,
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                '$count joined',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: color,
+                ),
+              ),
             ),
+            if (isSelected) ...[
+              const SizedBox(height: 8),
+              Icon(Icons.check_circle, color: color, size: 20),
+            ],
           ],
         ),
       ),

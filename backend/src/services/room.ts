@@ -206,7 +206,7 @@ async function createStaggeredRooms(
   const now = new Date();
   let roomIndex = 0;
 
-  // Create LIVE rooms (started in the past, ending in future)
+  // Create LIVE rooms (started in the past at staggered 6-min intervals)
   for (let i = 0; i < liveNeeded; i++) {
     const category = categories[roomIndex % categories.length];
     roomIndex++;
@@ -217,36 +217,40 @@ async function createStaggeredRooms(
       if (topics.length > 0) {
         const topic = topics[0];
         
-        // Stagger start times in the past (started 5, 10, 15... minutes ago)
-        const minutesAgo = (i + 1) * 5;
+        // Stagger start times in the past at 6-minute intervals
+        // Room 0: started 6 min ago, Room 1: started 12 min ago, etc.
+        const minutesAgo = (i + 1) * ROOM_INTERVAL_MINUTES;
         const startedAt = new Date(now.getTime() - minutesAgo * 60 * 1000);
         const endsAt = new Date(startedAt.getTime() + ROOM_DURATION_MS);
         
-        await prisma.room.create({
-          data: {
-            title: topic.title,
-            description: topic.description,
-            regionId,
-            categoryId: category.id,
-            type: 'DEBATE',
-            sideALabel: topic.sideALabel,
-            sideBLabel: topic.sideBLabel,
-            scheduledAt: startedAt,
-            startedAt: startedAt,
-            endsAt: endsAt,
-            status: 'LIVE',
-            isAiHosted: true,
-          },
-        });
+        // Only create if room would still be live (not ended)
+        if (endsAt > now) {
+          await prisma.room.create({
+            data: {
+              title: topic.title,
+              description: topic.description,
+              regionId,
+              categoryId: category.id,
+              type: 'DEBATE',
+              sideALabel: topic.sideALabel,
+              sideBLabel: topic.sideBLabel,
+              scheduledAt: startedAt,
+              startedAt: startedAt,
+              endsAt: endsAt,
+              status: 'LIVE',
+              isAiHosted: true,
+            },
+          });
 
-        console.log(`Created LIVE room: ${topic.title} (ends at ${endsAt.toISOString()})`);
+          console.log(`Created LIVE room: ${topic.title} (started ${minutesAgo}m ago, ends at ${endsAt.toISOString()})`);
+        }
       }
     } catch (error) {
       console.error('Error creating live room:', error);
     }
   }
 
-  // Create SCHEDULED rooms (staggered every 6 minutes)
+  // Create SCHEDULED rooms (staggered every 6 minutes into the future)
   for (let i = 0; i < scheduledNeeded; i++) {
     const category = categories[roomIndex % categories.length];
     roomIndex++;
@@ -257,15 +261,11 @@ async function createStaggeredRooms(
       if (topics.length > 0) {
         const topic = topics[0];
         
-        // Round to next 6-minute interval and add offset
-        const baseMinutes = Math.ceil(now.getMinutes() / ROOM_INTERVAL_MINUTES) * ROOM_INTERVAL_MINUTES;
-        const scheduledAt = new Date(now);
-        scheduledAt.setMinutes(baseMinutes + (i * ROOM_INTERVAL_MINUTES), 0, 0);
-        
-        // If scheduled time is in the past, push to next interval
-        if (scheduledAt <= now) {
-          scheduledAt.setMinutes(scheduledAt.getMinutes() + ROOM_INTERVAL_MINUTES);
-        }
+        // Schedule at 6, 12, 18, 24, 30 minutes from now
+        const minutesFromNow = (i + 1) * ROOM_INTERVAL_MINUTES;
+        const scheduledAt = new Date(now.getTime() + minutesFromNow * 60 * 1000);
+        // Round to nearest minute for cleaner times
+        scheduledAt.setSeconds(0, 0);
         
         await prisma.room.create({
           data: {
@@ -282,7 +282,7 @@ async function createStaggeredRooms(
           },
         });
 
-        console.log(`Created SCHEDULED room: ${topic.title} (at ${scheduledAt.toISOString()})`);
+        console.log(`Created SCHEDULED room: ${topic.title} (in ${minutesFromNow}m at ${scheduledAt.toISOString()})`);
       }
     } catch (error) {
       console.error('Error creating scheduled room:', error);

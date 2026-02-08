@@ -317,15 +317,28 @@ export async function roomRoutes(app: FastifyInstance) {
         side = 'NEUTRAL';
       }
 
-      // Determine role
+      // Determine role - first few people on each side get SPEAKER role
       const isHost = room.hostId === userId;
-      const role = isHost ? 'HOST' : 'LISTENER';
+      let role = isHost ? 'HOST' : 'LISTENER';
+      
+      // Auto-promote to SPEAKER if one of the first 3 on your side (not neutral)
+      if (!isHost && side !== 'NEUTRAL') {
+        const sideParticipants = await prisma.roomParticipant.count({
+          where: { roomId: id, side, leftAt: null },
+        });
+        if (sideParticipants < 3) {
+          role = 'SPEAKER';
+        }
+      }
+      
+      // Speakers start unmuted, listeners start muted
+      const startMuted = role === 'LISTENER';
 
       // Create or update participant
       const participant = existingParticipant
         ? await prisma.roomParticipant.update({
             where: { id: existingParticipant.id },
-            data: { side, role, leftAt: null, handRaised: false, isMuted: true },
+            data: { side, role, leftAt: null, handRaised: false, isMuted: startMuted },
             include: {
               user: {
                 select: { id: true, username: true, displayName: true, avatarUrl: true },
@@ -333,7 +346,7 @@ export async function roomRoutes(app: FastifyInstance) {
             },
           })
         : await prisma.roomParticipant.create({
-            data: { roomId: id, userId, side, role },
+            data: { roomId: id, userId, side, role, isMuted: startMuted },
             include: {
               user: {
                 select: { id: true, username: true, displayName: true, avatarUrl: true },
