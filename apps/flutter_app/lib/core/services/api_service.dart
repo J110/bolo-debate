@@ -110,17 +110,19 @@ class ApiService {
     return response.data;
   }
 
-  Future<Map<String, dynamic>> getLiveRooms({String? regionId, int limit = 10}) async {
+  Future<Map<String, dynamic>> getLiveRooms({String? regionId, String? categoryId, int limit = 10}) async {
     final response = await _dio.get('/rooms/live', queryParameters: {
       if (regionId != null) 'regionId': regionId,
+      if (categoryId != null) 'categoryId': categoryId,
       'limit': limit,
     });
     return response.data;
   }
 
-  Future<Map<String, dynamic>> getScheduledRooms({String? regionId, int limit = 10}) async {
+  Future<Map<String, dynamic>> getScheduledRooms({String? regionId, String? categoryId, int limit = 10}) async {
     final response = await _dio.get('/rooms/scheduled', queryParameters: {
       if (regionId != null) 'regionId': regionId,
+      if (categoryId != null) 'categoryId': categoryId,
       'limit': limit,
     });
     return response.data;

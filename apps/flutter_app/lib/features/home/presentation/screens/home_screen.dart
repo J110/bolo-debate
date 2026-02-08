@@ -12,8 +12,16 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedRegion = ref.watch(selectedRegionProvider);
-    final liveRoomsAsync = ref.watch(liveRoomsProvider(selectedRegion));
-    final scheduledRoomsAsync = ref.watch(scheduledRoomsProvider(selectedRegion));
+    final selectedCategory = ref.watch(selectedCategoryProvider);
+    
+    // Create filter params
+    final filterParams = RoomFilterParams(
+      regionId: selectedRegion,
+      categoryId: selectedCategory,
+    );
+    
+    final liveRoomsAsync = ref.watch(liveRoomsProvider(filterParams));
+    final scheduledRoomsAsync = ref.watch(scheduledRoomsProvider(filterParams));
     final regionsAsync = ref.watch(regionsProvider);
 
     return Scaffold(
@@ -71,8 +79,8 @@ class HomeScreen extends ConsumerWidget {
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          ref.invalidate(liveRoomsProvider(selectedRegion));
-          ref.invalidate(scheduledRoomsProvider(selectedRegion));
+          ref.invalidate(liveRoomsProvider(filterParams));
+          ref.invalidate(scheduledRoomsProvider(filterParams));
         },
         child: CustomScrollView(
           slivers: [

@@ -87,8 +87,9 @@ export async function roomRoutes(app: FastifyInstance) {
 
   // Get live rooms for home page
   app.get('/live', async (request, reply) => {
-    const { regionId, limit = '10' } = request.query as {
+    const { regionId, categoryId, limit = '10' } = request.query as {
       regionId?: string;
+      categoryId?: string;
       limit?: string;
     };
 
@@ -98,6 +99,7 @@ export async function roomRoutes(app: FastifyInstance) {
       where: {
         status: 'LIVE',
         ...(regionId ? { regionId } : {}),
+        ...(categoryId ? { categoryId } : {}),
       },
       include: {
         host: {
@@ -128,8 +130,9 @@ export async function roomRoutes(app: FastifyInstance) {
 
   // Get scheduled rooms
   app.get('/scheduled', async (request, reply) => {
-    const { regionId, limit = '10' } = request.query as {
+    const { regionId, categoryId, limit = '10' } = request.query as {
       regionId?: string;
+      categoryId?: string;
       limit?: string;
     };
 
@@ -140,6 +143,7 @@ export async function roomRoutes(app: FastifyInstance) {
         status: 'SCHEDULED',
         scheduledAt: { gte: new Date() },
         ...(regionId ? { regionId } : {}),
+        ...(categoryId ? { categoryId } : {}),
       },
       include: {
         host: {

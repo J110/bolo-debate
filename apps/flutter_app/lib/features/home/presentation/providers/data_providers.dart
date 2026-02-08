@@ -54,10 +54,29 @@ class SelectedRegionNotifier extends StateNotifier<String?> {
 // Selected category provider
 final selectedCategoryProvider = StateProvider<String?>((ref) => null);
 
-// Live rooms provider
-final liveRoomsProvider = FutureProvider.family<List<Room>, String?>((ref, regionId) async {
+// Room filter params
+class RoomFilterParams {
+  final String? regionId;
+  final String? categoryId;
+
+  RoomFilterParams({this.regionId, this.categoryId});
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RoomFilterParams &&
+          runtimeType == other.runtimeType &&
+          regionId == other.regionId &&
+          categoryId == other.categoryId;
+
+  @override
+  int get hashCode => regionId.hashCode ^ categoryId.hashCode;
+}
+
+// Live rooms provider with category filter
+final liveRoomsProvider = FutureProvider.family<List<Room>, RoomFilterParams>((ref, params) async {
   final api = ref.read(apiServiceProvider);
-  final response = await api.getLiveRooms(regionId: regionId);
+  final response = await api.getLiveRooms(regionId: params.regionId, categoryId: params.categoryId);
   
   if (response['success'] == true) {
     final data = response['data'] as List;
@@ -66,10 +85,10 @@ final liveRoomsProvider = FutureProvider.family<List<Room>, String?>((ref, regio
   return [];
 });
 
-// Scheduled rooms provider
-final scheduledRoomsProvider = FutureProvider.family<List<Room>, String?>((ref, regionId) async {
+// Scheduled rooms provider with category filter
+final scheduledRoomsProvider = FutureProvider.family<List<Room>, RoomFilterParams>((ref, params) async {
   final api = ref.read(apiServiceProvider);
-  final response = await api.getScheduledRooms(regionId: regionId);
+  final response = await api.getScheduledRooms(regionId: params.regionId, categoryId: params.categoryId);
   
   if (response['success'] == true) {
     final data = response['data'] as List;
