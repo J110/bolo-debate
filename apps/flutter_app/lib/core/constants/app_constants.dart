@@ -8,7 +8,12 @@ class AppConstants {
     defaultValue: 'http://localhost:3000',
   );
   static const String baseUrl = '$apiBaseUrl/api';
-  static const String wsUrl = apiBaseUrl.replaceFirst('http', 'ws').replaceFirst('https', 'wss') + '/ws';
+  
+  // WebSocket URL - Set during build
+  static const String wsUrl = String.fromEnvironment(
+    'WS_URL',
+    defaultValue: 'ws://localhost:3000/ws',
+  );
   
   // LiveKit URL - Set during build
   static const String livekitUrl = String.fromEnvironment(

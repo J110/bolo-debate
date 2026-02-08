@@ -2,14 +2,19 @@ import OpenAI from 'openai';
 import { config } from '../config/index.js';
 import { prisma } from '../config/database.js';
 
-const hasOpenAI = config.openai.apiKey && config.openai.apiKey.startsWith('sk-');
+const hasOpenAI = config.openai.apiKey && 
+  config.openai.apiKey.length > 10 && 
+  config.openai.apiKey.startsWith('sk-');
 
 const openai = hasOpenAI ? new OpenAI({
   apiKey: config.openai.apiKey,
 }) : null;
 
-if (!hasOpenAI) {
+if (hasOpenAI) {
+  console.log('✅ OpenAI API configured - will generate AI topics');
+} else {
   console.log('⚠️ OpenAI API key not configured - using fallback topics');
+  console.log(`   Key provided: ${config.openai.apiKey ? 'Yes (length: ' + config.openai.apiKey.length + ')' : 'No'}`);
 }
 
 interface GeneratedTopic {

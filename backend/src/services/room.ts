@@ -5,6 +5,7 @@ import { generateDebateTopics, generateDebateSuggestions, generateSubtopics } fr
 
 const ROOM_DURATION_MS = 30 * 60 * 1000; // 30 minutes
 const TARGET_LIVE_ROOMS_PER_REGION = 5;
+const ROOM_INTERVAL_MINUTES = 6; // New room every 6 minutes
 
 export async function startRoom(roomId: string): Promise<void> {
   const now = new Date();
@@ -50,10 +51,9 @@ export async function startRoom(roomId: string): Promise<void> {
       endsAt: endsAt.toISOString(),
     }),
     'EX',
-    ROOM_DURATION_MS / 1000 + 300 // TTL slightly longer than room duration
+    ROOM_DURATION_MS / 1000 + 300
   );
 
-  // Add to active rooms set
   await redis.sadd(REDIS_KEYS.ACTIVE_ROOMS, roomId);
 
   broadcastToRoom(roomId, {
@@ -76,13 +76,11 @@ export async function endRoom(roomId: string): Promise<void> {
     data: { status: 'ENDED' },
   });
 
-  // Mark all participants as left
   await prisma.roomParticipant.updateMany({
     where: { roomId, leftAt: null },
     data: { leftAt: new Date() },
   });
 
-  // Remove from Redis
   await redis.srem(REDIS_KEYS.ACTIVE_ROOMS, roomId);
   await redis.del(REDIS_KEYS.ROOM_STATE(roomId));
   await redis.del(REDIS_KEYS.ROOM_PARTICIPANTS(roomId));
@@ -100,7 +98,6 @@ export async function endRoom(roomId: string): Promise<void> {
 export async function checkAndStartScheduledRooms(): Promise<void> {
   const now = new Date();
 
-  // Find rooms that should start
   const roomsToStart = await prisma.room.findMany({
     where: {
       status: 'SCHEDULED',
@@ -120,7 +117,6 @@ export async function checkAndStartScheduledRooms(): Promise<void> {
 export async function checkAndEndExpiredRooms(): Promise<void> {
   const now = new Date();
 
-  // Find rooms that should end
   const roomsToEnd = await prisma.room.findMany({
     where: {
       status: 'LIVE',
@@ -141,7 +137,6 @@ export async function sendEndingSoonWarning(): Promise<void> {
   const fiveMinutesFromNow = new Date(Date.now() + 5 * 60 * 1000);
   const fourMinutesFromNow = new Date(Date.now() + 4 * 60 * 1000);
 
-  // Find rooms ending in approximately 5 minutes
   const roomsEndingSoon = await prisma.room.findMany({
     where: {
       status: 'LIVE',
@@ -163,47 +158,58 @@ export async function sendEndingSoonWarning(): Promise<void> {
 }
 
 export async function ensureMinimumRoomsPerRegion(): Promise<void> {
-  // Get all regions
   const regions = await prisma.region.findMany();
+  const now = new Date();
 
   for (const region of regions) {
-    // Count live + upcoming scheduled rooms for this region
-    const [liveCount, scheduledCount] = await Promise.all([
-      prisma.room.count({
-        where: { regionId: region.id, status: 'LIVE' },
-      }),
-      prisma.room.count({
-        where: {
-          regionId: region.id,
-          status: 'SCHEDULED',
-          scheduledAt: {
-            gte: new Date(),
-            lte: new Date(Date.now() + 60 * 60 * 1000), // Next hour
-          },
+    // Count live rooms
+    const liveCount = await prisma.room.count({
+      where: { regionId: region.id, status: 'LIVE' },
+    });
+
+    // Count upcoming scheduled rooms (next 2 hours)
+    const scheduledCount = await prisma.room.count({
+      where: {
+        regionId: region.id,
+        status: 'SCHEDULED',
+        scheduledAt: {
+          gte: now,
+          lte: new Date(now.getTime() + 2 * 60 * 60 * 1000),
         },
-      }),
-    ]);
+      },
+    });
 
-    const totalRooms = liveCount + scheduledCount;
-    const roomsNeeded = TARGET_LIVE_ROOMS_PER_REGION - totalRooms;
+    // If not enough live rooms, create some immediately
+    const liveRoomsNeeded = Math.max(0, TARGET_LIVE_ROOMS_PER_REGION - liveCount);
+    
+    // Also ensure upcoming rooms are scheduled
+    const upcomingNeeded = Math.max(0, TARGET_LIVE_ROOMS_PER_REGION - scheduledCount);
 
-    if (roomsNeeded > 0) {
-      await createAIHostedRooms(region.id, roomsNeeded);
+    if (liveRoomsNeeded > 0 || upcomingNeeded > 0) {
+      await createStaggeredRooms(region.id, liveRoomsNeeded, upcomingNeeded);
     }
   }
 }
 
-async function createAIHostedRooms(regionId: string, count: number): Promise<void> {
-  // Get random categories
+async function createStaggeredRooms(
+  regionId: string, 
+  liveNeeded: number, 
+  scheduledNeeded: number
+): Promise<void> {
   const categories = await prisma.category.findMany();
   
   if (categories.length === 0) {
-    console.log('No categories found, skipping AI room creation');
+    console.log('No categories found, skipping room creation');
     return;
   }
 
-  for (let i = 0; i < count; i++) {
-    const category = categories[Math.floor(Math.random() * categories.length)];
+  const now = new Date();
+  let roomIndex = 0;
+
+  // Create LIVE rooms (started in the past, ending in future)
+  for (let i = 0; i < liveNeeded; i++) {
+    const category = categories[roomIndex % categories.length];
+    roomIndex++;
     
     try {
       const topics = await generateDebateTopics(regionId, category.id, 1);
@@ -211,8 +217,55 @@ async function createAIHostedRooms(regionId: string, count: number): Promise<voi
       if (topics.length > 0) {
         const topic = topics[0];
         
-        // Schedule 30 minutes from now
-        const scheduledAt = new Date(Date.now() + 30 * 60 * 1000);
+        // Stagger start times in the past (started 5, 10, 15... minutes ago)
+        const minutesAgo = (i + 1) * 5;
+        const startedAt = new Date(now.getTime() - minutesAgo * 60 * 1000);
+        const endsAt = new Date(startedAt.getTime() + ROOM_DURATION_MS);
+        
+        await prisma.room.create({
+          data: {
+            title: topic.title,
+            description: topic.description,
+            regionId,
+            categoryId: category.id,
+            type: 'DEBATE',
+            sideALabel: topic.sideALabel,
+            sideBLabel: topic.sideBLabel,
+            scheduledAt: startedAt,
+            startedAt: startedAt,
+            endsAt: endsAt,
+            status: 'LIVE',
+            isAiHosted: true,
+          },
+        });
+
+        console.log(`Created LIVE room: ${topic.title} (ends at ${endsAt.toISOString()})`);
+      }
+    } catch (error) {
+      console.error('Error creating live room:', error);
+    }
+  }
+
+  // Create SCHEDULED rooms (staggered every 6 minutes)
+  for (let i = 0; i < scheduledNeeded; i++) {
+    const category = categories[roomIndex % categories.length];
+    roomIndex++;
+    
+    try {
+      const topics = await generateDebateTopics(regionId, category.id, 1);
+      
+      if (topics.length > 0) {
+        const topic = topics[0];
+        
+        // Round to next 6-minute interval and add offset
+        const baseMinutes = Math.ceil(now.getMinutes() / ROOM_INTERVAL_MINUTES) * ROOM_INTERVAL_MINUTES;
+        const scheduledAt = new Date(now);
+        scheduledAt.setMinutes(baseMinutes + (i * ROOM_INTERVAL_MINUTES), 0, 0);
+        
+        // If scheduled time is in the past, push to next interval
+        if (scheduledAt <= now) {
+          scheduledAt.setMinutes(scheduledAt.getMinutes() + ROOM_INTERVAL_MINUTES);
+        }
         
         await prisma.room.create({
           data: {
@@ -224,14 +277,15 @@ async function createAIHostedRooms(regionId: string, count: number): Promise<voi
             sideALabel: topic.sideALabel,
             sideBLabel: topic.sideBLabel,
             scheduledAt,
+            status: 'SCHEDULED',
             isAiHosted: true,
           },
         });
 
-        console.log(`Created AI-hosted room: ${topic.title}`);
+        console.log(`Created SCHEDULED room: ${topic.title} (at ${scheduledAt.toISOString()})`);
       }
     } catch (error) {
-      console.error('Error creating AI-hosted room:', error);
+      console.error('Error creating scheduled room:', error);
     }
   }
 }
