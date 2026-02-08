@@ -11,9 +11,13 @@ class LiveKitService extends ChangeNotifier {
   bool _isConnecting = false;
   String? _error;
   
-  // Audio level for visualizer
+  // Audio level for visualizer (0.0 - 1.0)
   double _audioLevel = 0.0;
-  StreamSubscription? _audioLevelSubscription;
+  Timer? _audioLevelTimer;
+  EventsListener<RoomEvent>? _roomListener;
+  
+  // Store speaking states per participant
+  final Map<String, bool> _speakingStates = {};
   
   // Callbacks
   Function(List<RemoteParticipant>)? onParticipantsChanged;
@@ -48,7 +52,7 @@ class LiveKitService extends ChangeNotifier {
         ),
       );
 
-      // Setup event listeners
+      // Setup event listeners BEFORE connecting
       _setupRoomListeners();
 
       // Connect to LiveKit
@@ -79,53 +83,94 @@ class LiveKitService extends ChangeNotifier {
   void _setupRoomListeners() {
     if (_room == null) return;
 
-    _room!.addListener(_onRoomUpdate);
+    // Create events listener for room events
+    _roomListener = _room!.createListener();
     
-    // Listen for audio level changes
-    _startAudioLevelMonitoring();
+    // Listen for active speaker changes - this gives us real audio levels
+    _roomListener!.on<ActiveSpeakersChangedEvent>((event) {
+      _handleActiveSpeakers(event.speakers);
+    });
+    
+    // Listen for track subscribed events
+    _roomListener!.on<TrackSubscribedEvent>((event) {
+      _onRoomUpdate();
+    });
+    
+    // Listen for track unsubscribed events
+    _roomListener!.on<TrackUnsubscribedEvent>((event) {
+      _onRoomUpdate();
+    });
+    
+    // Listen for participant connected
+    _roomListener!.on<ParticipantConnectedEvent>((event) {
+      _onRoomUpdate();
+    });
+    
+    // Listen for participant disconnected
+    _roomListener!.on<ParticipantDisconnectedEvent>((event) {
+      _speakingStates.remove(event.participant.identity);
+      _onRoomUpdate();
+    });
+    
+    // Start polling for audio levels as backup
+    _startAudioLevelPolling();
   }
-
-  void _onRoomUpdate() {
-    notifyListeners();
-    onParticipantsChanged?.call(remoteParticipants);
+  
+  void _handleActiveSpeakers(List<Participant> speakers) {
+    // Update speaking states
+    _speakingStates.clear();
+    
+    double maxLevel = 0.0;
+    for (final speaker in speakers) {
+      _speakingStates[speaker.identity] = true;
+      // Active speakers have audio level - use it
+      if (speaker.audioLevel > maxLevel) {
+        maxLevel = speaker.audioLevel;
+      }
+    }
+    
+    if (maxLevel != _audioLevel) {
+      _audioLevel = maxLevel;
+      onAudioLevelChanged?.call(_audioLevel);
+      notifyListeners();
+    }
   }
-
-  void _startAudioLevelMonitoring() {
-    // Monitor audio levels every 100ms
-    _audioLevelSubscription?.cancel();
-    _audioLevelSubscription = Stream.periodic(const Duration(milliseconds: 100))
-        .listen((_) {
+  
+  void _startAudioLevelPolling() {
+    _audioLevelTimer?.cancel();
+    _audioLevelTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
       if (_room == null || !_isConnected) return;
       
-      // Get combined audio level from all participants
       double maxLevel = 0.0;
       
-      // Check local participant audio
+      // Check local participant audio level
       if (_localParticipant != null && !_isMuted) {
-        for (final track in _localParticipant!.audioTrackPublications) {
-          if (track.track != null && !track.muted) {
-            // Local audio is active
-            maxLevel = 0.5; // Placeholder - actual level from audio track
-          }
+        final localLevel = _localParticipant!.audioLevel;
+        if (localLevel > maxLevel) {
+          maxLevel = localLevel;
         }
       }
       
       // Check remote participants' audio levels
       for (final participant in _room!.remoteParticipants.values) {
-        for (final track in participant.audioTrackPublications) {
-          if (track.track != null && !track.muted) {
-            // Remote audio is active
-            maxLevel = 0.7; // Placeholder - actual level from audio track
-          }
+        final level = participant.audioLevel;
+        if (level > maxLevel) {
+          maxLevel = level;
         }
       }
       
-      if (_audioLevel != maxLevel) {
-        _audioLevel = maxLevel;
+      // Smooth the audio level changes
+      if ((maxLevel - _audioLevel).abs() > 0.01) {
+        _audioLevel = _audioLevel * 0.7 + maxLevel * 0.3; // Smooth transition
         onAudioLevelChanged?.call(_audioLevel);
         notifyListeners();
       }
     });
+  }
+
+  void _onRoomUpdate() {
+    notifyListeners();
+    onParticipantsChanged?.call(remoteParticipants);
   }
 
   Future<void> enableMicrophone() async {
@@ -165,11 +210,12 @@ class LiveKitService extends ChangeNotifier {
   }
 
   Future<void> disconnect() async {
-    _audioLevelSubscription?.cancel();
-    _audioLevelSubscription = null;
+    _audioLevelTimer?.cancel();
+    _audioLevelTimer = null;
+    _roomListener?.dispose();
+    _roomListener = null;
     
     if (_room != null) {
-      _room!.removeListener(_onRoomUpdate);
       await _room!.disconnect();
       _room = null;
     }
@@ -178,6 +224,7 @@ class LiveKitService extends ChangeNotifier {
     _isConnected = false;
     _isMuted = true;
     _audioLevel = 0.0;
+    _speakingStates.clear();
     notifyListeners();
     print('🔌 Disconnected from LiveKit');
   }

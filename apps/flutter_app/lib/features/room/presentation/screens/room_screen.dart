@@ -60,10 +60,22 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
       }
     };
     
+    // Listen for LiveKit state changes
+    _liveKitService.addListener(_onLiveKitUpdate);
+    
     // Auto-join room after widget is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _joinRoom();
     });
+  }
+  
+  void _onLiveKitUpdate() {
+    if (mounted) {
+      setState(() {
+        _isLiveKitConnected = _liveKitService.isConnected;
+        _currentAudioLevel = _liveKitService.audioLevel;
+      });
+    }
   }
   
   Future<void> _joinRoom() async {
@@ -103,6 +115,7 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
     _messageController.dispose();
     _scrollController.dispose();
     _timer?.cancel();
+    _liveKitService.removeListener(_onLiveKitUpdate);
     _liveKitService.disconnect();
     _liveKitService.dispose();
     super.dispose();

@@ -202,8 +202,29 @@ class LiveRoomNotifier extends StateNotifier<LiveRoomState> {
   Future<void> claimHost() async {
     try {
       final response = await _api.claimHost(roomId);
-      if (response['success'] == true) {
-        // Room update will come via WebSocket
+      if (response['success'] == true && response['data'] != null) {
+        // Immediately update room state with new host info
+        final roomData = response['data'] as Map<String, dynamic>;
+        User? newHost;
+        if (roomData['host'] != null) {
+          final hostData = roomData['host'] as Map<String, dynamic>;
+          newHost = User(
+            id: hostData['id'] as String,
+            username: hostData['username'] as String,
+            displayName: hostData['displayName'] as String,
+            avatarUrl: hostData['avatarUrl'] as String?,
+            createdAt: DateTime.now(),
+          );
+        }
+        
+        if (state.room != null && newHost != null) {
+          state = state.copyWith(
+            room: state.room!.copyWith(
+              host: newHost,
+              isAiHosted: false,
+            ),
+          );
+        }
       }
     } catch (e) {
       state = state.copyWith(error: e.toString());
@@ -262,7 +283,28 @@ class LiveRoomNotifier extends StateNotifier<LiveRoomState> {
         break;
         
       case 'room:update':
-        // Handle room updates (status, endsAt, etc.)
+        // Handle room updates (host, status, endsAt, etc.)
+        final payload = message['payload'] as Map<String, dynamic>?;
+        if (payload != null && state.room != null) {
+          User? newHost;
+          if (payload['host'] != null) {
+            final hostData = payload['host'] as Map<String, dynamic>;
+            newHost = User(
+              id: hostData['id'] as String,
+              username: hostData['username'] as String,
+              displayName: hostData['displayName'] as String,
+              avatarUrl: hostData['avatarUrl'] as String?,
+              createdAt: DateTime.now(),
+            );
+          }
+          
+          state = state.copyWith(
+            room: state.room!.copyWith(
+              host: newHost ?? state.room!.host,
+              isAiHosted: payload['isAiHosted'] as bool? ?? state.room!.isAiHosted,
+            ),
+          );
+        }
         break;
         
       case 'room:ended':
