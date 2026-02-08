@@ -278,7 +278,7 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
           id: 'current-user',
           user: currentUser,
           side: selectedSide,
-          role: ParticipantRole.member,
+          role: selectedSide == ParticipantSide.neutral ? ParticipantRole.listener : ParticipantRole.speaker,
           handRaised: state.handRaised,
           isMuted: state.isMuted,
           joinedAt: DateTime.now(),
