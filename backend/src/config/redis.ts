@@ -1,6 +1,8 @@
-import Redis from 'ioredis';
+import RedisClient from 'ioredis';
 import { config } from './index.js';
 import { EventEmitter } from 'events';
+
+type RedisInstance = InstanceType<typeof RedisClient>;
 
 // In-memory store for local development
 class MemoryStore extends EventEmitter {
@@ -11,7 +13,7 @@ class MemoryStore extends EventEmitter {
     return this.store.get(key) || null;
   }
 
-  async set(key: string, value: string, ...args: any[]): Promise<string> {
+  async set(key: string, value: string, ..._args: any[]): Promise<string> {
     this.store.set(key, value);
     return 'OK';
   }
@@ -61,9 +63,9 @@ class MemoryStore extends EventEmitter {
 // Check if we should use memory store
 const useMemory = config.redis.url === 'memory' || !config.redis.url;
 
-let redis: Redis | MemoryStore;
-let redisSub: Redis | MemoryStore;
-let redisPub: Redis | MemoryStore;
+let redis: RedisInstance | MemoryStore;
+let redisSub: RedisInstance | MemoryStore;
+let redisPub: RedisInstance | MemoryStore;
 
 if (useMemory) {
   console.log('📦 Using in-memory store (no Redis required)');
@@ -72,22 +74,22 @@ if (useMemory) {
   redisSub = memStore;
   redisPub = memStore;
 } else {
-  redis = new Redis(config.redis.url, {
+  redis = new RedisClient(config.redis.url, {
     maxRetriesPerRequest: 3,
-    retryStrategy(times) {
+    retryStrategy(times: number) {
       const delay = Math.min(times * 50, 2000);
       return delay;
     },
   });
 
-  redisSub = new Redis(config.redis.url);
-  redisPub = new Redis(config.redis.url);
+  redisSub = new RedisClient(config.redis.url);
+  redisPub = new RedisClient(config.redis.url);
 
   redis.on('connect', () => {
     console.log('✅ Redis connected');
   });
 
-  redis.on('error', (error) => {
+  redis.on('error', (error: Error) => {
     console.error('❌ Redis error:', error);
   });
 }

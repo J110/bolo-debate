@@ -43,6 +43,6 @@ export async function optionalAuth(
     }
   } catch {
     // Token is invalid, but that's okay for optional auth
-    request.user = undefined;
+    // Don't set user - leave it as default
   }
 }
