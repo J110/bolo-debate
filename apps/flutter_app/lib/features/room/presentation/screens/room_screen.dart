@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -60,6 +61,9 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
                       children: [
                         // Header
                         _buildHeader(roomState.room!),
+                        
+                        // Audio Visualizer
+                        _AudioVisualizer(),
                         
                         // Participants grid
                         Expanded(
@@ -222,6 +226,7 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
 
   Widget _buildParticipantsArea(LiveRoomState state) {
     final participants = state.participants;
+    final room = state.room;
     
     if (participants.isEmpty) {
       return const Center(
@@ -232,13 +237,96 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
       );
     }
 
+    // Split participants by side
+    final sideA = participants.where((p) => p.side == ParticipantSide.a).toList();
+    final sideB = participants.where((p) => p.side == ParticipantSide.b).toList();
+    final neutral = participants.where((p) => p.side == ParticipantSide.neutral).toList();
+
+    if (room?.isDebate == true) {
+      return Row(
+        children: [
+          // Side A Column
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.sideA.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.sideA.withOpacity(0.3)),
+              ),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Text(
+                      room?.sideALabel ?? 'Side A',
+                      style: const TextStyle(
+                        color: AppColors.sideA,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: sideA.isEmpty
+                        ? const Center(
+                            child: Text('No participants', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                          )
+                        : _buildParticipantGrid(sideA),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Side B Column
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.sideB.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.sideB.withOpacity(0.3)),
+              ),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Text(
+                      room?.sideBLabel ?? 'Side B',
+                      style: const TextStyle(
+                        color: AppColors.sideB,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: sideB.isEmpty
+                        ? const Center(
+                            child: Text('No participants', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                          )
+                        : _buildParticipantGrid(sideB),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Non-debate room - show all participants in grid
+    return _buildParticipantGrid([...sideA, ...sideB, ...neutral]);
+  }
+
+  Widget _buildParticipantGrid(List<RoomParticipant> participants) {
     return GridView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(8),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        childAspectRatio: 0.8,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
+        crossAxisCount: 2,
+        childAspectRatio: 0.9,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
       ),
       itemCount: participants.length,
       itemBuilder: (context, index) {
@@ -351,8 +439,12 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
 
   void _sendMessage() {
     final content = _messageController.text.trim();
+    final currentUser = ref.read(currentUserProvider);
     if (content.isNotEmpty) {
-      ref.read(liveRoomProvider(widget.roomId).notifier).sendMessage(content);
+      ref.read(liveRoomProvider(widget.roomId).notifier).sendMessage(
+        content, 
+        currentUser: currentUser,
+      );
       _messageController.clear();
       // Scroll to bottom
       Future.delayed(const Duration(milliseconds: 100), () {
@@ -488,83 +580,129 @@ class _ParticipantTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color borderColor = Colors.transparent;
+    Color borderColor = Colors.white24;
+    Color backgroundColor = AppColors.primary.withOpacity(0.2);
+    
     if (participant.side == ParticipantSide.a) {
       borderColor = AppColors.sideA;
+      backgroundColor = AppColors.sideA.withOpacity(0.2);
     } else if (participant.side == ParticipantSide.b) {
       borderColor = AppColors.sideB;
+      backgroundColor = AppColors.sideB.withOpacity(0.2);
     }
 
+    // Add glow effect when speaking (not muted)
+    final isSpeaking = !participant.isMuted;
+
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Stack(
+          clipBehavior: Clip.none,
           children: [
+            // Outer glow when speaking
+            if (isSpeaking)
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: borderColor.withOpacity(0.6),
+                      blurRadius: 15,
+                      spreadRadius: 3,
+                    ),
+                  ],
+                ),
+              ),
+            // Main avatar
             Container(
               width: 64,
               height: 64,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: borderColor, width: 2),
-                color: AppColors.primary.withOpacity(0.2),
+                border: Border.all(color: borderColor, width: 3),
+                color: backgroundColor,
+                gradient: RadialGradient(
+                  colors: [
+                    backgroundColor,
+                    backgroundColor.withOpacity(0.5),
+                  ],
+                ),
               ),
               child: Center(
                 child: Text(
                   participant.user.displayName[0].toUpperCase(),
-                  style: const TextStyle(
-                    color: AppColors.primary,
+                  style: TextStyle(
+                    color: borderColor == Colors.white24 ? AppColors.primary : borderColor,
                     fontWeight: FontWeight.bold,
                     fontSize: 24,
                   ),
                 ),
               ),
             ),
+            // Host badge
             if (participant.isHost)
               Positioned(
-                bottom: 0,
-                right: 0,
+                bottom: -2,
+                right: -2,
                 child: Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: const BoxDecoration(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
                     color: AppColors.warning,
                     shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.backgroundDark, width: 2),
                   ),
-                  child: const Icon(Icons.star, size: 12, color: Colors.white),
+                  child: const Icon(Icons.star, size: 10, color: Colors.white),
                 ),
               ),
+            // Hand raised badge
             if (participant.handRaised)
               Positioned(
-                top: 0,
-                right: 0,
+                top: -4,
+                right: -4,
                 child: Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: const BoxDecoration(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
                     color: AppColors.warning,
                     shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.backgroundDark, width: 2),
                   ),
                   child: const Text('✋', style: TextStyle(fontSize: 10)),
                 ),
               ),
+            // Mic status badge
+            Positioned(
+              bottom: -2,
+              left: -2,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: participant.isMuted ? Colors.red : Colors.green,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.backgroundDark, width: 2),
+                ),
+                child: Icon(
+                  participant.isMuted ? Icons.mic_off : Icons.mic,
+                  size: 10,
+                  color: Colors.white,
+                ),
+              ),
+            ),
           ],
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 8),
         Text(
           participant.user.displayName,
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 12,
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-        ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              participant.isMuted ? Icons.mic_off : Icons.mic,
-              size: 12,
-              color: participant.isMuted ? Colors.red : Colors.green,
-            ),
-          ],
+          textAlign: TextAlign.center,
         ),
       ],
     );
@@ -661,6 +799,91 @@ class _ControlButton extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// Audio Visualizer Widget
+class _AudioVisualizer extends StatefulWidget {
+  @override
+  State<_AudioVisualizer> createState() => _AudioVisualizerState();
+}
+
+class _AudioVisualizerState extends State<_AudioVisualizer> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  final List<double> _barHeights = List.generate(20, (_) => 0.3);
+  
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 150),
+    )..repeat();
+    _controller.addListener(_updateBars);
+  }
+  
+  void _updateBars() {
+    if (mounted) {
+      setState(() {
+        for (int i = 0; i < _barHeights.length; i++) {
+          // Simulate audio levels - in real implementation, this would use actual audio data
+          _barHeights[i] = 0.1 + (0.9 * _pseudoRandom(i + DateTime.now().millisecond));
+        }
+      });
+    }
+  }
+  
+  double _pseudoRandom(int seed) {
+    // Simple pseudo-random for animation effect
+    return ((seed * 1103515245 + 12345) % 100) / 100.0;
+  }
+  
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 60,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: List.generate(_barHeights.length, (index) {
+          // Create gradient colors from cyan to purple
+          final hue = 180 + (index * 10);
+          final color = HSLColor.fromAHSL(1.0, hue.toDouble() % 360, 0.8, 0.6).toColor();
+          
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 100),
+            width: 4,
+            margin: const EdgeInsets.symmetric(horizontal: 2),
+            height: 10 + (_barHeights[index] * 35),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [
+                  color.withOpacity(0.5),
+                  color,
+                ],
+              ),
+              borderRadius: BorderRadius.circular(2),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withOpacity(0.5),
+                  blurRadius: 4,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+          );
+        }),
       ),
     );
   }

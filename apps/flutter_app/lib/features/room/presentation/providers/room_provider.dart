@@ -159,8 +159,21 @@ class LiveRoomNotifier extends StateNotifier<LiveRoomState> {
     }
   }
 
-  Future<void> sendMessage(String content) async {
+  Future<void> sendMessage(String content, {User? currentUser}) async {
     try {
+      // Optimistically add message immediately
+      if (currentUser != null) {
+        final tempMessage = ChatMessage(
+          id: 'temp-${DateTime.now().millisecondsSinceEpoch}',
+          user: currentUser,
+          content: content,
+          isBot: false,
+          createdAt: DateTime.now(),
+        );
+        state = state.copyWith(
+          messages: [...state.messages, tempMessage],
+        );
+      }
       await _api.sendMessage(roomId, content);
     } catch (e) {
       state = state.copyWith(error: e.toString());

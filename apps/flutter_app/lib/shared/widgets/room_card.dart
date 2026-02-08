@@ -13,6 +13,34 @@ class RoomCard extends StatelessWidget {
     this.onTap,
   });
 
+  String _getTimeText() {
+    if (room.isLive) {
+      if (room.startedAt != null) {
+        final duration = DateTime.now().difference(room.startedAt!);
+        if (duration.inMinutes < 1) {
+          return 'Just started';
+        } else if (duration.inMinutes < 60) {
+          return 'Live for ${duration.inMinutes}m';
+        } else {
+          return 'Live for ${duration.inHours}h ${duration.inMinutes % 60}m';
+        }
+      }
+      return 'Live now';
+    } else {
+      final now = DateTime.now();
+      final diff = room.scheduledAt.difference(now);
+      if (diff.isNegative) {
+        return 'Starting soon';
+      } else if (diff.inMinutes < 60) {
+        return 'In ${diff.inMinutes}m';
+      } else if (diff.inHours < 24) {
+        return 'In ${diff.inHours}h ${diff.inMinutes % 60}m';
+      } else {
+        return timeago.format(room.scheduledAt, allowFromNow: true);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -106,10 +134,10 @@ class RoomCard extends StatelessWidget {
                   Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
                   const SizedBox(width: 4),
                   Text(
-                    room.isLive
-                        ? 'Live'
-                        : timeago.format(room.scheduledAt),
-                    style: Theme.of(context).textTheme.bodySmall,
+                    _getTimeText(),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: room.isLive ? AppColors.error : null,
+                    ),
                   ),
                 ],
               ),

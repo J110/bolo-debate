@@ -45,6 +45,16 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
       ),
+      bottomNavigationBar: roomAsync.when(
+        data: (room) {
+          if (room == null || room.status == RoomStatus.ended) {
+            return const SizedBox.shrink();
+          }
+          return _buildJoinButton(context, room);
+        },
+        loading: () => const SizedBox.shrink(),
+        error: (_, __) => const SizedBox.shrink(),
+      ),
     );
   }
 
@@ -278,6 +288,52 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
 
           const SizedBox(height: 100),
         ],
+      ),
+    );
+  }
+
+  Widget _buildJoinButton(BuildContext context, Room room) {
+    final canJoin = !room.isDebate || _selectedSide != null;
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: ElevatedButton(
+          onPressed: canJoin ? () => _showPledgeDialog(context, room) : null,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: room.isLive ? AppColors.error : AppColors.primary,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(room.isLive ? Icons.mic : Icons.event),
+              const SizedBox(width: 8),
+              Text(
+                room.isLive 
+                    ? (canJoin ? 'Join Live Room' : 'Select a side to join')
+                    : 'Set Reminder',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
