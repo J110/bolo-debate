@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../config/database.js';
 import { config } from '../config/index.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, getUser } from '../middleware/auth.js';
 
 const registerSchema = z.object({
   username: z.string().min(3).max(20).regex(/^[a-zA-Z0-9_]+$/, 
@@ -142,7 +142,7 @@ export async function authRoutes(app: FastifyInstance) {
   // Get current user
   app.get('/me', { preHandler: authenticate }, async (request, reply) => {
     const user = await prisma.user.findUnique({
-      where: { id: request.user!.userId },
+      where: { id: getUser(request).userId },
       include: {
         region: true,
         categoryPreferences: {
@@ -174,7 +174,7 @@ export async function authRoutes(app: FastifyInstance) {
   // Refresh token
   app.post('/refresh', { preHandler: authenticate }, async (request, reply) => {
     const token = app.jwt.sign(
-      { userId: request.user!.userId, username: request.user!.username },
+      { userId: getUser(request).userId, username: getUser(request).username },
       { expiresIn: config.jwt.expiresIn }
     );
 

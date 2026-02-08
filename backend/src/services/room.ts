@@ -36,7 +36,7 @@ export async function startRoom(roomId: string): Promise<void> {
     await prisma.room.update({
       where: { id: roomId },
       data: {
-        aiSuggestions: { suggestions, subtopics },
+        aiSuggestions: JSON.parse(JSON.stringify({ suggestions, subtopics })),
       },
     });
   }

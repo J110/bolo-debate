@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../config/database.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, getUser } from '../middleware/auth.js';
 
 const createReportSchema = z.object({
   reportedUserId: z.string().uuid(),
@@ -14,7 +14,7 @@ export async function reportRoutes(app: FastifyInstance) {
   app.post('/', { preHandler: authenticate }, async (request, reply) => {
     try {
       const body = createReportSchema.parse(request.body);
-      const userId = request.user!.userId;
+      const userId = getUser(request).userId;
 
       if (body.reportedUserId === userId) {
         return reply.status(400).send({
@@ -82,7 +82,7 @@ export async function reportRoutes(app: FastifyInstance) {
 
   // Get user's reports (for transparency)
   app.get('/my', { preHandler: authenticate }, async (request, reply) => {
-    const userId = request.user!.userId;
+    const userId = getUser(request).userId;
 
     const reports = await prisma.report.findMany({
       where: { reporterId: userId },

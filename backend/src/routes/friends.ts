@@ -1,11 +1,11 @@
 import { FastifyInstance } from 'fastify';
 import { prisma } from '../config/database.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, getUser } from '../middleware/auth.js';
 
 export async function friendRoutes(app: FastifyInstance) {
   // Get friends list
   app.get('/', { preHandler: authenticate }, async (request, reply) => {
-    const userId = request.user!.userId;
+    const userId = getUser(request).userId;
 
     const friendships = await prisma.friendship.findMany({
       where: {
@@ -37,7 +37,7 @@ export async function friendRoutes(app: FastifyInstance) {
 
   // Get pending friend requests
   app.get('/requests', { preHandler: authenticate }, async (request, reply) => {
-    const userId = request.user!.userId;
+    const userId = getUser(request).userId;
 
     const [incoming, outgoing] = await Promise.all([
       prisma.friendship.findMany({
@@ -69,7 +69,7 @@ export async function friendRoutes(app: FastifyInstance) {
 
   // Send friend request
   app.post('/request', { preHandler: authenticate }, async (request, reply) => {
-    const userId = request.user!.userId;
+    const userId = getUser(request).userId;
     const { username } = request.body as { username: string };
 
     if (!username) {
@@ -142,7 +142,7 @@ export async function friendRoutes(app: FastifyInstance) {
 
   // Accept friend request
   app.post('/accept/:id', { preHandler: authenticate }, async (request, reply) => {
-    const userId = request.user!.userId;
+    const userId = getUser(request).userId;
     const { id } = request.params as { id: string };
 
     const friendship = await prisma.friendship.findUnique({
@@ -183,7 +183,7 @@ export async function friendRoutes(app: FastifyInstance) {
 
   // Reject friend request
   app.post('/reject/:id', { preHandler: authenticate }, async (request, reply) => {
-    const userId = request.user!.userId;
+    const userId = getUser(request).userId;
     const { id } = request.params as { id: string };
 
     const friendship = await prisma.friendship.findUnique({
@@ -217,7 +217,7 @@ export async function friendRoutes(app: FastifyInstance) {
 
   // Remove friend
   app.delete('/:id', { preHandler: authenticate }, async (request, reply) => {
-    const userId = request.user!.userId;
+    const userId = getUser(request).userId;
     const { id } = request.params as { id: string };
 
     // Find friendship where current user is either party

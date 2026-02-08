@@ -1,6 +1,11 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { JWTPayload } from '../types/index.js';
 
+// Helper to get typed user from request
+export function getUser(request: FastifyRequest): JWTPayload {
+  return request.user as JWTPayload;
+}
+
 export async function authenticate(
   request: FastifyRequest,
   reply: FastifyReply

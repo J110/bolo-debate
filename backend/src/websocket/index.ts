@@ -1,17 +1,14 @@
 import { FastifyInstance } from 'fastify';
-import { WebSocket } from 'ws';
-import { redis, redisSub, redisPub } from '../config/redis.js';
+import { redisSub, redisPub } from '../config/redis.js';
 import { WebSocketMessage } from '../types/index.js';
 
-// Map of roomId -> Set of WebSocket connections
-const roomConnections = new Map<string, Set<WebSocket>>();
-
-// Map of WebSocket -> roomId (for cleanup)
-const connectionRooms = new Map<WebSocket, string>();
+// Store connections by room
+const roomConnections = new Map<string, Set<any>>();
+const connectionRooms = new Map<any, string>();
 
 export function setupWebSocket(app: FastifyInstance): void {
   // Subscribe to Redis pub/sub for room events
-  redisSub.subscribe('room:events', (err) => {
+  redisSub.subscribe('room:events', (err: any) => {
     if (err) {
       console.error('Failed to subscribe to room events:', err);
     } else {
@@ -19,7 +16,7 @@ export function setupWebSocket(app: FastifyInstance): void {
     }
   });
 
-  redisSub.on('message', (channel, message) => {
+  redisSub.on('message', (channel: string, message: string) => {
     if (channel === 'room:events') {
       try {
         const event = JSON.parse(message) as WebSocketMessage;
@@ -31,34 +28,32 @@ export function setupWebSocket(app: FastifyInstance): void {
   });
 
   // WebSocket route
-  app.get('/ws', { websocket: true }, (connection, request) => {
-    const ws = connection;
-    
+  app.get('/ws', { websocket: true }, (socket: any, request) => {
     console.log('WebSocket client connected');
 
-    ws.on('message', async (data) => {
+    socket.on('message', async (data: any) => {
       try {
         const message = JSON.parse(data.toString());
-        await handleMessage(ws, message);
+        await handleMessage(socket, message);
       } catch (error) {
         console.error('Error handling WebSocket message:', error);
-        ws.send(JSON.stringify({ error: 'Invalid message format' }));
+        socket.send(JSON.stringify({ error: 'Invalid message format' }));
       }
     });
 
-    ws.on('close', () => {
-      handleDisconnect(ws);
+    socket.on('close', () => {
+      handleDisconnect(socket);
     });
 
-    ws.on('error', (error) => {
+    socket.on('error', (error: any) => {
       console.error('WebSocket error:', error);
-      handleDisconnect(ws);
+      handleDisconnect(socket);
     });
   });
 }
 
-async function handleMessage(ws: WebSocket, message: any): Promise<void> {
-  const { type, roomId, payload } = message;
+async function handleMessage(ws: any, message: any): Promise<void> {
+  const { type, roomId } = message;
 
   switch (type) {
     case 'join_room':
@@ -78,11 +73,9 @@ async function handleMessage(ws: WebSocket, message: any): Promise<void> {
   }
 }
 
-function joinRoom(ws: WebSocket, roomId: string): void {
-  // Leave any existing room first
+function joinRoom(ws: any, roomId: string): void {
   leaveRoom(ws);
 
-  // Add to room connections
   if (!roomConnections.has(roomId)) {
     roomConnections.set(roomId, new Set());
   }
@@ -91,7 +84,6 @@ function joinRoom(ws: WebSocket, roomId: string): void {
 
   console.log(`Client joined room ${roomId}. Total in room: ${roomConnections.get(roomId)!.size}`);
 
-  // Send confirmation
   ws.send(JSON.stringify({
     type: 'room:joined',
     roomId,
@@ -99,7 +91,7 @@ function joinRoom(ws: WebSocket, roomId: string): void {
   }));
 }
 
-function leaveRoom(ws: WebSocket): void {
+function leaveRoom(ws: any): void {
   const roomId = connectionRooms.get(ws);
   
   if (roomId) {
@@ -115,7 +107,7 @@ function leaveRoom(ws: WebSocket): void {
   }
 }
 
-function handleDisconnect(ws: WebSocket): void {
+function handleDisconnect(ws: any): void {
   leaveRoom(ws);
   console.log('WebSocket client disconnected');
 }
@@ -124,17 +116,20 @@ function deliverToRoom(roomId: string, message: string): void {
   const connections = roomConnections.get(roomId);
   
   if (connections) {
-    const deadConnections: WebSocket[] = [];
+    const deadConnections: any[] = [];
     
-    connections.forEach((ws) => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(message);
-      } else {
+    connections.forEach((ws: any) => {
+      try {
+        if (ws.readyState === 1) { // WebSocket.OPEN = 1
+          ws.send(message);
+        } else {
+          deadConnections.push(ws);
+        }
+      } catch {
         deadConnections.push(ws);
       }
     });
 
-    // Clean up dead connections
     deadConnections.forEach((ws) => {
       connections.delete(ws);
       connectionRooms.delete(ws);
@@ -146,18 +141,15 @@ function deliverToRoom(roomId: string, message: string): void {
   }
 }
 
-// Function to broadcast to a room (called from other services)
+// Broadcast to a room via Redis
 export function broadcastToRoom(roomId: string, event: WebSocketMessage): void {
-  // Publish to Redis so all server instances receive it
   redisPub.publish('room:events', JSON.stringify(event));
 }
 
-// Get count of connections in a room
 export function getRoomConnectionCount(roomId: string): number {
   return roomConnections.get(roomId)?.size || 0;
 }
 
-// Get all active room IDs
 export function getActiveRoomIds(): string[] {
   return Array.from(roomConnections.keys());
 }

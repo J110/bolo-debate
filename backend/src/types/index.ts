@@ -1,15 +1,14 @@
-import { FastifyRequest } from 'fastify';
-
 // JWT payload type
 export interface JWTPayload {
   userId: string;
   username: string;
 }
 
-// Augment FastifyRequest to include user
-declare module 'fastify' {
-  interface FastifyRequest {
-    user?: JWTPayload;
+// Augment Fastify JWT
+declare module '@fastify/jwt' {
+  interface FastifyJWT {
+    payload: JWTPayload;
+    user: JWTPayload;
   }
 }
 

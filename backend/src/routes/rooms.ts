@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../config/database.js';
-import { authenticate, optionalAuth } from '../middleware/auth.js';
+import { authenticate, optionalAuth, getUser } from '../middleware/auth.js';
 import { getLiveKitToken } from '../services/livekit.js';
 import { broadcastToRoom } from '../websocket/index.js';
 
@@ -208,7 +208,7 @@ export async function roomRoutes(app: FastifyInstance) {
   app.post('/', { preHandler: authenticate }, async (request, reply) => {
     try {
       const body = createRoomSchema.parse(request.body);
-      const userId = request.user!.userId;
+      const userId = getUser(request).userId;
 
       // Validate scheduled time is at least 30 minutes in the future
       const scheduledAt = new Date(body.scheduledAt);
@@ -266,7 +266,7 @@ export async function roomRoutes(app: FastifyInstance) {
     try {
       const { id } = request.params as { id: string };
       const body = joinRoomSchema.parse(request.body);
-      const userId = request.user!.userId;
+      const userId = getUser(request).userId;
 
       if (!body.pledgeAccepted) {
         return reply.status(400).send({
@@ -363,7 +363,7 @@ export async function roomRoutes(app: FastifyInstance) {
   // Leave room
   app.post('/:id/leave', { preHandler: authenticate }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const userId = request.user!.userId;
+    const userId = getUser(request).userId;
 
     const participant = await prisma.roomParticipant.findUnique({
       where: {
@@ -400,7 +400,7 @@ export async function roomRoutes(app: FastifyInstance) {
   // Get LiveKit token for room
   app.get('/:id/token', { preHandler: authenticate }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const userId = request.user!.userId;
+    const userId = getUser(request).userId;
 
     const participant = await prisma.roomParticipant.findUnique({
       where: {
@@ -438,7 +438,7 @@ export async function roomRoutes(app: FastifyInstance) {
   app.post('/:id/hand', { preHandler: authenticate }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const { raised } = request.body as { raised: boolean };
-    const userId = request.user!.userId;
+    const userId = getUser(request).userId;
 
     const participant = await prisma.roomParticipant.findUnique({
       where: {
@@ -475,7 +475,7 @@ export async function roomRoutes(app: FastifyInstance) {
   app.post('/:id/mute', { preHandler: authenticate }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const { muted } = request.body as { muted: boolean };
-    const userId = request.user!.userId;
+    const userId = getUser(request).userId;
 
     const participant = await prisma.roomParticipant.findUnique({
       where: {
@@ -512,7 +512,7 @@ export async function roomRoutes(app: FastifyInstance) {
   // Extend room time (host only)
   app.post('/:id/extend', { preHandler: authenticate }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const userId = request.user!.userId;
+    const userId = getUser(request).userId;
 
     const room = await prisma.room.findUnique({
       where: { id },
@@ -578,7 +578,7 @@ export async function roomRoutes(app: FastifyInstance) {
   // Claim host (for AI-hosted rooms)
   app.post('/:id/claim-host', { preHandler: authenticate }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const userId = request.user!.userId;
+    const userId = getUser(request).userId;
 
     const room = await prisma.room.findUnique({
       where: { id },
@@ -656,7 +656,7 @@ export async function roomRoutes(app: FastifyInstance) {
   // Kick participant (host only)
   app.delete('/:id/kick/:userId', { preHandler: authenticate }, async (request, reply) => {
     const { id, userId: targetUserId } = request.params as { id: string; userId: string };
-    const userId = request.user!.userId;
+    const userId = getUser(request).userId;
 
     const room = await prisma.room.findUnique({
       where: { id },
@@ -705,7 +705,7 @@ export async function roomRoutes(app: FastifyInstance) {
   app.post('/:id/messages', { preHandler: authenticate }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const { content } = request.body as { content: string };
-    const userId = request.user!.userId;
+    const userId = getUser(request).userId;
 
     if (!content || content.trim().length === 0) {
       return reply.status(400).send({
@@ -787,7 +787,7 @@ export async function roomRoutes(app: FastifyInstance) {
   app.post('/:id/reactions', { preHandler: authenticate }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const { emoji } = request.body as { emoji: string };
-    const userId = request.user!.userId;
+    const userId = getUser(request).userId;
 
     const allowedEmojis = ['👏', '🔥', '💯', '🤔', '👍', '👎', '❤️', '😂'];
     if (!allowedEmojis.includes(emoji)) {

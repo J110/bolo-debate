@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../config/database.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, getUser } from '../middleware/auth.js';
 
 const updateProfileSchema = z.object({
   displayName: z.string().min(1).max(50).optional(),
@@ -51,7 +51,7 @@ export async function userRoutes(app: FastifyInstance) {
       const body = updateProfileSchema.parse(request.body);
 
       const user = await prisma.user.update({
-        where: { id: request.user!.userId },
+        where: { id: getUser(request).userId },
         data: body,
         select: {
           id: true,
@@ -82,7 +82,7 @@ export async function userRoutes(app: FastifyInstance) {
   app.put('/me/preferences', { preHandler: authenticate }, async (request, reply) => {
     try {
       const body = updatePreferencesSchema.parse(request.body);
-      const userId = request.user!.userId;
+      const userId = getUser(request).userId;
 
       // Delete existing preferences
       await prisma.userCategoryPreference.deleteMany({
@@ -127,7 +127,7 @@ export async function userRoutes(app: FastifyInstance) {
 
     const [participations, total] = await Promise.all([
       prisma.roomParticipant.findMany({
-        where: { userId: request.user!.userId },
+        where: { userId: getUser(request).userId },
         include: {
           room: {
             include: {
@@ -142,7 +142,7 @@ export async function userRoutes(app: FastifyInstance) {
         take: limitNum,
       }),
       prisma.roomParticipant.count({
-        where: { userId: request.user!.userId },
+        where: { userId: getUser(request).userId },
       }),
     ]);
 
