@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bolo_debate/core/constants/app_constants.dart';
 import 'package:bolo_debate/core/theme/app_theme.dart';
+import 'package:bolo_debate/core/services/livekit_service.dart';
+import 'package:bolo_debate/core/services/api_service.dart';
 import 'package:bolo_debate/features/auth/presentation/providers/auth_provider.dart';
 import 'package:bolo_debate/features/room/presentation/providers/room_provider.dart';
 import 'package:bolo_debate/shared/models/room_model.dart';
@@ -25,6 +27,11 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
   Timer? _timer;
   final List<_FloatingReaction> _floatingReactions = [];
   
+  // LiveKit service for audio
+  final LiveKitService _liveKitService = LiveKitService();
+  bool _isLiveKitConnected = false;
+  double _currentAudioLevel = 0.0;
+  
   ParticipantSide _getSelectedSide() {
     switch (widget.selectedSide) {
       case 'A':
@@ -43,6 +50,16 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
     });
+    
+    // Listen for audio level changes from LiveKit
+    _liveKitService.onAudioLevelChanged = (level) {
+      if (mounted) {
+        setState(() {
+          _currentAudioLevel = level;
+        });
+      }
+    };
+    
     // Auto-join room after widget is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _joinRoom();
@@ -50,7 +67,35 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
   }
   
   Future<void> _joinRoom() async {
+    // First join via API
     await ref.read(liveRoomProvider(widget.roomId).notifier).joinRoom(widget.selectedSide);
+    
+    // Then connect to LiveKit
+    await _connectToLiveKit();
+  }
+  
+  Future<void> _connectToLiveKit() async {
+    try {
+      final apiService = ref.read(apiServiceProvider);
+      final response = await apiService.getRoomToken(widget.roomId);
+      
+      if (response['success'] == true && response['data'] != null) {
+        final token = response['data']['token'] as String;
+        final connected = await _liveKitService.connect(token, widget.roomId);
+        
+        if (mounted) {
+          setState(() {
+            _isLiveKitConnected = connected;
+          });
+        }
+        
+        if (connected) {
+          print('✅ LiveKit connected successfully');
+        }
+      }
+    } catch (e) {
+      print('❌ Failed to connect to LiveKit: $e');
+    }
   }
 
   @override
@@ -58,6 +103,8 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
     _messageController.dispose();
     _scrollController.dispose();
     _timer?.cancel();
+    _liveKitService.disconnect();
+    _liveKitService.dispose();
     super.dispose();
   }
 
@@ -86,8 +133,11 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
                             // Header
                             _buildHeader(roomState.room!),
                             
-                            // Audio Visualizer
-                            _AudioVisualizer(),
+                            // Audio Visualizer - connected to LiveKit audio levels
+                            _AudioVisualizer(
+                              isActive: _isLiveKitConnected,
+                              audioLevel: _currentAudioLevel,
+                            ),
                             
                             // Participants grid
                             Expanded(
@@ -471,6 +521,9 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
   }
 
   Widget _buildBottomControls(LiveRoomState state, String? currentUserId) {
+    // Use LiveKit state for mute if connected, otherwise fallback to state
+    final isMuted = _isLiveKitConnected ? _liveKitService.isMuted : state.isMuted;
+    
     return Container(
       padding: const EdgeInsets.all(16),
       child: Row(
@@ -478,11 +531,17 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
         children: [
           // Mute button
           _ControlButton(
-            icon: state.isMuted ? Icons.mic_off : Icons.mic,
-            label: state.isMuted ? 'Unmute' : 'Mute',
-            color: state.isMuted ? Colors.red : Colors.green,
-            onTap: () {
-              ref.read(liveRoomProvider(widget.roomId).notifier).toggleMute(!state.isMuted);
+            icon: isMuted ? Icons.mic_off : Icons.mic,
+            label: isMuted ? 'Unmute' : 'Mute',
+            color: isMuted ? Colors.red : Colors.green,
+            onTap: () async {
+              // Toggle LiveKit audio
+              if (_isLiveKitConnected) {
+                await _liveKitService.toggleMicrophone();
+              }
+              // Also update backend state
+              ref.read(liveRoomProvider(widget.roomId).notifier).toggleMute(!isMuted);
+              setState(() {});
             },
           ),
           
@@ -594,7 +653,10 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-            onPressed: () {
+            onPressed: () async {
+              // Disconnect LiveKit
+              await _liveKitService.disconnect();
+              // Leave room via API
               ref.read(liveRoomProvider(widget.roomId).notifier).leaveRoom();
               Navigator.pop(context);
               context.go('/home');
@@ -902,22 +964,30 @@ class _ControlButton extends StatelessWidget {
   }
 }
 
-// Audio Visualizer Widget
+// Audio Visualizer Widget - connected to real LiveKit audio
 class _AudioVisualizer extends StatefulWidget {
+  final bool isActive;
+  final double audioLevel;
+  
+  const _AudioVisualizer({
+    this.isActive = false,
+    this.audioLevel = 0.0,
+  });
+  
   @override
   State<_AudioVisualizer> createState() => _AudioVisualizerState();
 }
 
 class _AudioVisualizerState extends State<_AudioVisualizer> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  final List<double> _barHeights = List.generate(20, (_) => 0.3);
+  final List<double> _barHeights = List.generate(20, (_) => 0.2);
   
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 150),
+      duration: const Duration(milliseconds: 100),
     )..repeat();
     _controller.addListener(_updateBars);
   }
@@ -926,15 +996,24 @@ class _AudioVisualizerState extends State<_AudioVisualizer> with SingleTickerPro
     if (mounted) {
       setState(() {
         for (int i = 0; i < _barHeights.length; i++) {
-          // Simulate audio levels - in real implementation, this would use actual audio data
-          _barHeights[i] = 0.1 + (0.9 * _pseudoRandom(i + DateTime.now().millisecond));
+          if (widget.isActive && widget.audioLevel > 0.1) {
+            // Use real audio level with some variance per bar
+            final variance = _pseudoRandom(i + DateTime.now().millisecond) * 0.4;
+            _barHeights[i] = (widget.audioLevel + variance).clamp(0.1, 1.0);
+          } else if (widget.isActive) {
+            // When connected but no audio, show subtle idle animation
+            _barHeights[i] = 0.15 + (_pseudoRandom(i + DateTime.now().millisecond) * 0.1);
+          } else {
+            // Not connected - show waiting animation
+            final wave = math.sin((DateTime.now().millisecondsSinceEpoch / 300) + (i * 0.3));
+            _barHeights[i] = 0.2 + (wave.abs() * 0.15);
+          }
         }
       });
     }
   }
   
   double _pseudoRandom(int seed) {
-    // Simple pseudo-random for animation effect
     return ((seed * 1103515245 + 12345) % 100) / 100.0;
   }
   
@@ -946,42 +1025,66 @@ class _AudioVisualizerState extends State<_AudioVisualizer> with SingleTickerPro
   
   @override
   Widget build(BuildContext context) {
+    // Change color based on connection state
+    final baseHue = widget.isActive ? 180.0 : 220.0; // Cyan when active, blue when waiting
+    
     return Container(
       height: 60,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: List.generate(_barHeights.length, (index) {
-          // Create gradient colors from cyan to purple
-          final hue = 180 + (index * 10);
-          final color = HSLColor.fromAHSL(1.0, hue.toDouble() % 360, 0.8, 0.6).toColor();
-          
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 100),
-            width: 4,
-            margin: const EdgeInsets.symmetric(horizontal: 2),
-            height: 10 + (_barHeights[index] * 35),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-                colors: [
-                  color.withOpacity(0.5),
-                  color,
-                ],
+      child: Column(
+        children: [
+          // Connection status indicator
+          if (!widget.isActive)
+            Text(
+              'Connecting to audio...',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.5),
+                fontSize: 10,
               ),
-              borderRadius: BorderRadius.circular(2),
-              boxShadow: [
-                BoxShadow(
-                  color: color.withOpacity(0.5),
-                  blurRadius: 4,
-                  spreadRadius: 1,
-                ),
-              ],
             ),
-          );
-        }),
+          const SizedBox(height: 4),
+          // Visualizer bars
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: List.generate(_barHeights.length, (index) {
+                final hue = baseHue + (index * 8);
+                final color = HSLColor.fromAHSL(
+                  widget.isActive ? 1.0 : 0.5,
+                  hue % 360,
+                  0.8,
+                  0.6,
+                ).toColor();
+                
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 80),
+                  width: 4,
+                  margin: const EdgeInsets.symmetric(horizontal: 2),
+                  height: 8 + (_barHeights[index] * 30),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [
+                        color.withOpacity(0.4),
+                        color,
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(2),
+                    boxShadow: widget.isActive && widget.audioLevel > 0.3 ? [
+                      BoxShadow(
+                        color: color.withOpacity(0.6),
+                        blurRadius: 6,
+                        spreadRadius: 1,
+                      ),
+                    ] : null,
+                  ),
+                );
+              }),
+            ),
+          ),
+        ],
       ),
     );
   }

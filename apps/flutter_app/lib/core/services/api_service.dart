@@ -185,12 +185,12 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> extendRoom(String roomId) async {
-    final response = await _dio.post('/rooms/$roomId/extend');
+    final response = await _dio.post('/rooms/$roomId/extend', data: {});
     return response.data;
   }
 
   Future<Map<String, dynamic>> claimHost(String roomId) async {
-    final response = await _dio.post('/rooms/$roomId/claim-host');
+    final response = await _dio.post('/rooms/$roomId/claim-host', data: {});
     return response.data;
   }
 

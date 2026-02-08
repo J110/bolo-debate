@@ -241,3 +241,21 @@ model NewsSource {
   @@index([categoryId])
   @@index([fetchedAt])
 }
+
+// Topic queue for caching pre-generated debate topics
+model TopicQueue {
+  id           String   @id @default(uuid()) @db.Uuid
+  regionId     String   @db.Uuid
+  categoryId   String   @db.Uuid
+  title        String
+  description  String?
+  sideALabel   String
+  sideBLabel   String
+  subtopics    Json?
+  isUsed       Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  usedAt       DateTime?
+
+  @@index([regionId, categoryId, isUsed])
+  @@index([createdAt])
+}

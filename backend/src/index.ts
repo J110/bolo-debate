@@ -73,9 +73,10 @@ signals.forEach((signal) => {
   });
 });
 
-// Cleanup old rooms on startup
+// Cleanup old rooms on startup and populate topic cache
 async function startupCleanup() {
   const { prisma } = await import('./config/database.js');
+  const { batchGenerateTopics } = await import('./services/ai.js');
   
   console.log('🧹 Running startup cleanup...');
   
@@ -106,6 +107,19 @@ async function startupCleanup() {
   
   if (deletedResult.count > 0) {
     console.log(`  Deleted ${deletedResult.count} old ended rooms`);
+  }
+  
+  // Check topic cache and populate if needed
+  const cachedTopicCount = await prisma.topicQueue.count({
+    where: { isUsed: false },
+  });
+  
+  console.log(`  📦 Topic cache has ${cachedTopicCount} unused topics`);
+  
+  if (cachedTopicCount < 20) {
+    console.log('  🎯 Generating initial batch of topics...');
+    // Generate 20 topics initially (enough for ~2 hours at 5 live rooms)
+    await batchGenerateTopics(20);
   }
   
   // Now ensure minimum rooms exist

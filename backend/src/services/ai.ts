@@ -10,6 +10,11 @@ const openai = hasOpenAI ? new OpenAI({
   apiKey: config.openai.apiKey,
 }) : null;
 
+// Track last batch generation time to avoid over-calling
+let lastBatchGenerationTime = 0;
+const BATCH_GENERATION_INTERVAL = 60 * 60 * 1000; // 1 hour minimum between batch generations
+const MIN_TOPICS_PER_CATEGORY = 5; // Minimum cached topics before regenerating
+
 if (hasOpenAI) {
   console.log('✅ OpenAI API configured - will generate AI topics');
 } else {
@@ -66,10 +71,11 @@ const fallbackTopics: Record<string, { title: string; sideA: string; sideB: stri
   ],
 };
 
+// Get a topic from cache first, only generate if needed
 export async function generateDebateTopics(
   regionId: string,
   categoryId: string,
-  count: number = 3
+  count: number = 1
 ): Promise<GeneratedTopic[]> {
   const [region, category] = await Promise.all([
     prisma.region.findUnique({ where: { id: regionId } }),
@@ -80,19 +86,125 @@ export async function generateDebateTopics(
     throw new Error('Invalid region or category');
   }
 
-  // Use fallback topics if OpenAI is not available
-  if (!openai) {
-    const categoryTopics = fallbackTopics[category.name] || fallbackTopics.default;
-    const shuffled = categoryTopics.sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, count).map(topic => ({
+  // First, try to get from topic queue cache
+  const cachedTopics = await prisma.topicQueue.findMany({
+    where: {
+      regionId,
+      categoryId,
+      isUsed: false,
+    },
+    take: count,
+    orderBy: { createdAt: 'asc' },
+  });
+
+  if (cachedTopics.length >= count) {
+    // Mark topics as used
+    await prisma.topicQueue.updateMany({
+      where: { id: { in: cachedTopics.map(t => t.id) } },
+      data: { isUsed: true, usedAt: new Date() },
+    });
+
+    console.log(`📦 Using ${cachedTopics.length} cached topics for ${category.name}`);
+    
+    return cachedTopics.map(topic => ({
       title: topic.title,
-      description: `A debate topic for ${region.name} community`,
-      sideALabel: topic.sideA,
-      sideBLabel: topic.sideB,
+      description: topic.description || '',
+      sideALabel: topic.sideALabel,
+      sideBLabel: topic.sideBLabel,
       categoryId,
       regionId,
     }));
   }
+
+  // Not enough cached topics - use fallback (don't call OpenAI on each request)
+  const categoryTopics = fallbackTopics[category.name] || fallbackTopics.default;
+  const shuffled = categoryTopics.sort(() => Math.random() - 0.5);
+  
+  console.log(`⚠️ No cached topics for ${category.name}, using fallback`);
+  
+  return shuffled.slice(0, count).map(topic => ({
+    title: topic.title,
+    description: `A debate topic for ${region.name} community`,
+    sideALabel: topic.sideA,
+    sideBLabel: topic.sideB,
+    categoryId,
+    regionId,
+  }));
+}
+
+// Batch generate topics - call this once per hour via scheduler
+export async function batchGenerateTopics(topicsPerCategory: number = 10): Promise<number> {
+  // Check if enough time has passed since last generation
+  const now = Date.now();
+  if (now - lastBatchGenerationTime < BATCH_GENERATION_INTERVAL) {
+    const minsRemaining = Math.ceil((BATCH_GENERATION_INTERVAL - (now - lastBatchGenerationTime)) / 60000);
+    console.log(`⏳ Batch generation skipped - ${minsRemaining} minutes until next batch`);
+    return 0;
+  }
+
+  if (!openai) {
+    console.log('⚠️ OpenAI not configured - cannot batch generate topics');
+    return 0;
+  }
+
+  const regions = await prisma.region.findMany({ take: 3 }); // Limit to 3 regions
+  const categories = await prisma.category.findMany();
+  
+  let totalGenerated = 0;
+
+  for (const region of regions) {
+    for (const category of categories) {
+      // Check how many unused topics we have
+      const unusedCount = await prisma.topicQueue.count({
+        where: { regionId: region.id, categoryId: category.id, isUsed: false },
+      });
+
+      if (unusedCount >= MIN_TOPICS_PER_CATEGORY) {
+        continue; // Enough cached topics
+      }
+
+      const toGenerate = Math.min(topicsPerCategory, MIN_TOPICS_PER_CATEGORY * 2 - unusedCount);
+      
+      try {
+        const topics = await generateTopicsFromOpenAI(region, category, toGenerate);
+        
+        // Save to queue
+        for (const topic of topics) {
+          await prisma.topicQueue.create({
+            data: {
+              regionId: region.id,
+              categoryId: category.id,
+              title: topic.title,
+              description: topic.description,
+              sideALabel: topic.sideALabel,
+              sideBLabel: topic.sideBLabel,
+            },
+          });
+        }
+        
+        totalGenerated += topics.length;
+        console.log(`✅ Generated ${topics.length} topics for ${category.name} in ${region.name}`);
+        
+        // Small delay to avoid rate limits
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (error) {
+        console.error(`Error generating topics for ${category.name}:`, error);
+      }
+    }
+  }
+
+  lastBatchGenerationTime = now;
+  console.log(`📊 Batch generation complete: ${totalGenerated} topics created`);
+  return totalGenerated;
+}
+
+// Internal function to call OpenAI for topic generation
+async function generateTopicsFromOpenAI(
+  region: { name: string; state: string },
+  category: { name: string },
+  count: number
+): Promise<{ title: string; description: string; sideALabel: string; sideBLabel: string }[]> {
+  if (!openai) return [];
 
   const prompt = `Generate ${count} engaging debate topics for an audio discussion platform in India.
 
@@ -111,54 +223,39 @@ For each topic, provide:
 - sideALabel: Label for one side (e.g., "Support", "In Favor", "Yes") (max 30 chars)
 - sideBLabel: Label for opposing side (e.g., "Oppose", "Against", "No") (max 30 chars)
 
-Respond in JSON format as an array of objects.`;
+Respond in JSON format: { "topics": [...] }`;
 
-  try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a helpful assistant that generates engaging debate topics for an Indian audio discussion platform. Always respond with valid JSON.',
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.8,
-      max_tokens: 1500,
-    });
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4-turbo-preview',
+    messages: [
+      {
+        role: 'system',
+        content: 'You are a helpful assistant that generates engaging debate topics for an Indian audio discussion platform. Always respond with valid JSON.',
+      },
+      {
+        role: 'user',
+        content: prompt,
+      },
+    ],
+    response_format: { type: 'json_object' },
+    temperature: 0.8,
+    max_tokens: 2000,
+  });
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error('No response from OpenAI');
-    }
-
-    const parsed = JSON.parse(content);
-    const topics = parsed.topics || parsed;
-
-    return (Array.isArray(topics) ? topics : [topics]).map((topic: any) => ({
-      title: topic.title,
-      description: topic.description,
-      sideALabel: topic.sideALabel,
-      sideBLabel: topic.sideBLabel,
-      categoryId,
-      regionId,
-    }));
-  } catch (error) {
-    console.error('Error generating debate topics:', error);
-    // Return fallback topics
-    return [{
-      title: `Local ${category.name} Discussion for ${region.name}`,
-      description: `Join this discussion about ${category.name} topics relevant to ${region.name}`,
-      sideALabel: 'In Favor',
-      sideBLabel: 'Against',
-      categoryId,
-      regionId,
-    }];
+  const content = response.choices[0]?.message?.content;
+  if (!content) {
+    throw new Error('No response from OpenAI');
   }
+
+  const parsed = JSON.parse(content);
+  const topics = parsed.topics || parsed;
+
+  return (Array.isArray(topics) ? topics : [topics]).map((topic: any) => ({
+    title: topic.title || 'Untitled Topic',
+    description: topic.description || '',
+    sideALabel: topic.sideALabel || 'In Favor',
+    sideBLabel: topic.sideBLabel || 'Against',
+  }));
 }
 
 export async function generateDebateSuggestions(

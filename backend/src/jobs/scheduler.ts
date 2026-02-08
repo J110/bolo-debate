@@ -6,7 +6,7 @@ import {
   sendEndingSoonWarning,
   ensureMinimumRoomsPerRegion,
 } from '../services/room.js';
-import { generateBotMessage } from '../services/ai.js';
+import { generateBotMessage, batchGenerateTopics } from '../services/ai.js';
 import { broadcastToRoom } from '../websocket/index.js';
 
 export function startScheduler(): void {
@@ -50,11 +50,39 @@ export function startScheduler(): void {
     }
   });
 
+  // Batch generate topics every hour (at minute 0)
+  cron.schedule('0 * * * *', async () => {
+    try {
+      console.log('🎯 Running hourly topic batch generation...');
+      await batchGenerateTopics(10);
+    } catch (error) {
+      console.error('Error in batch topic generation:', error);
+    }
+  });
+
+  // Clean up old used topics weekly (Sunday at 3am)
+  cron.schedule('0 3 * * 0', async () => {
+    try {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const deleted = await prisma.topicQueue.deleteMany({
+        where: {
+          isUsed: true,
+          usedAt: { lte: sevenDaysAgo },
+        },
+      });
+      console.log(`🗑️ Cleaned up ${deleted.count} old used topics`);
+    } catch (error) {
+      console.error('Error cleaning up old topics:', error);
+    }
+  });
+
   console.log('Scheduler started with the following jobs:');
   console.log('  - Room lifecycle check: every 30 seconds');
   console.log('  - Ending soon warnings: every minute');
   console.log('  - Ensure minimum rooms: every 5 minutes');
   console.log('  - Bot suggestions: every 3 minutes');
+  console.log('  - Batch topic generation: every hour');
+  console.log('  - Topic cleanup: weekly');
 }
 
 async function sendBotSuggestions(): Promise<void> {
