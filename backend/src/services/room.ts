@@ -9,13 +9,26 @@ const ROOM_INTERVAL_MINUTES = 6; // New room every 6 minutes
 
 export async function startRoom(roomId: string): Promise<void> {
   const now = new Date();
-  const endsAt = new Date(now.getTime() + ROOM_DURATION_MS);
+  
+  // Get the room first to check its scheduledAt
+  const existingRoom = await prisma.room.findUnique({
+    where: { id: roomId },
+  });
+  
+  if (!existingRoom) return;
+  
+  // Use the original scheduledAt as startedAt if it's in the past,
+  // otherwise use now. This preserves staggered start times.
+  const startedAt = existingRoom.scheduledAt <= now 
+    ? existingRoom.scheduledAt 
+    : now;
+  const endsAt = new Date(startedAt.getTime() + ROOM_DURATION_MS);
 
   const room = await prisma.room.update({
     where: { id: roomId },
     data: {
       status: 'LIVE',
-      startedAt: now,
+      startedAt,
       endsAt,
     },
     include: {

@@ -80,20 +80,17 @@ async function startupCleanup() {
   
   console.log('🧹 Running startup cleanup...');
   
-  // End all rooms that have been live for over 45 minutes
-  const maxLiveTime = 45 * 60 * 1000;
-  const cutoffTime = new Date(Date.now() - maxLiveTime);
-  
-  const staleResult = await prisma.room.updateMany({
+  // Delete ALL AI-hosted rooms on startup - they'll be recreated with proper staggering
+  // This ensures rooms have correctly staggered times after server restart
+  const aiRoomsDeleted = await prisma.room.deleteMany({
     where: {
-      status: 'LIVE',
-      startedAt: { lte: cutoffTime },
+      isAiHosted: true,
+      status: { in: ['LIVE', 'SCHEDULED'] },
     },
-    data: { status: 'ENDED' },
   });
   
-  if (staleResult.count > 0) {
-    console.log(`  Ended ${staleResult.count} stale live rooms`);
+  if (aiRoomsDeleted.count > 0) {
+    console.log(`  Cleared ${aiRoomsDeleted.count} AI-hosted rooms (will recreate with proper timing)`);
   }
   
   // Delete old ended rooms (older than 24 hours)
@@ -122,7 +119,7 @@ async function startupCleanup() {
     await batchGenerateTopics(20);
   }
   
-  // Now ensure minimum rooms exist
+  // Now ensure minimum rooms exist - this will create fresh rooms with proper staggering
   const { ensureMinimumRoomsPerRegion } = await import('./services/room.js');
   await ensureMinimumRoomsPerRegion();
   
