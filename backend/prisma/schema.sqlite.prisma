@@ -1,0 +1,180 @@
+// SQLite version for local development
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id          String   @id @default(uuid())
+  username    String   @unique
+  displayName String
+  avatarUrl   String?
+  regionId    String?
+  isBanned    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  region             Region?            @relation(fields: [regionId], references: [id])
+  hostedRooms        Room[]             @relation("HostedRooms")
+  participations     RoomParticipant[]
+  messages           Message[]
+  reactions          Reaction[]
+  reportsMade        Report[]           @relation("ReportsMade")
+  reportsReceived    Report[]           @relation("ReportsReceived")
+  friendshipsInitiated Friendship[]     @relation("FriendshipsInitiated")
+  friendshipsReceived  Friendship[]     @relation("FriendshipsReceived")
+  categoryPreferences  UserCategoryPreference[]
+}
+
+model Region {
+  id        String   @id @default(uuid())
+  name      String
+  state     String
+  latitude  Float?
+  longitude Float?
+  createdAt DateTime @default(now())
+
+  users User[]
+  rooms Room[]
+
+  @@unique([name, state])
+}
+
+model Category {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  icon      String
+  color     String
+  createdAt DateTime @default(now())
+
+  rooms       Room[]
+  newsSources NewsSource[]
+  userPreferences UserCategoryPreference[]
+}
+
+model UserCategoryPreference {
+  id         String   @id @default(uuid())
+  userId     String
+  categoryId String
+  createdAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, categoryId])
+}
+
+model Room {
+  id             String   @id @default(uuid())
+  title          String
+  description    String?
+  hostId         String?
+  regionId       String
+  categoryId     String
+  type           String   @default("DEBATE")
+  sideALabel     String?
+  sideBLabel     String?
+  scheduledAt    DateTime
+  startedAt      DateTime?
+  endsAt         DateTime?
+  extensionsUsed Int      @default(0)
+  status         String   @default("SCHEDULED")
+  isAiHosted     Boolean  @default(false)
+  aiSuggestions  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  host         User?             @relation("HostedRooms", fields: [hostId], references: [id])
+  region       Region            @relation(fields: [regionId], references: [id])
+  category     Category          @relation(fields: [categoryId], references: [id])
+  participants RoomParticipant[]
+  messages     Message[]
+  reactions    Reaction[]
+  reports      Report[]
+}
+
+model RoomParticipant {
+  id         String   @id @default(uuid())
+  roomId     String
+  userId     String
+  side       String   @default("NEUTRAL")
+  role       String   @default("LISTENER")
+  handRaised Boolean  @default(false)
+  isMuted    Boolean  @default(true)
+  joinedAt   DateTime @default(now())
+  leftAt     DateTime?
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId])
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  roomId    String
+  userId    String
+  content   String
+  isBot     Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Reaction {
+  id        String   @id @default(uuid())
+  roomId    String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Report {
+  id             String   @id @default(uuid())
+  reporterId     String
+  reportedUserId String
+  roomId         String?
+  reason         String
+  status         String   @default("PENDING")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  reporter     User  @relation("ReportsMade", fields: [reporterId], references: [id], onDelete: Cascade)
+  reportedUser User  @relation("ReportsReceived", fields: [reportedUserId], references: [id], onDelete: Cascade)
+  room         Room? @relation(fields: [roomId], references: [id], onDelete: SetNull)
+}
+
+model Friendship {
+  id        String   @id @default(uuid())
+  userId    String
+  friendId  String
+  status    String   @default("PENDING")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User @relation("FriendshipsInitiated", fields: [userId], references: [id], onDelete: Cascade)
+  friend User @relation("FriendshipsReceived", fields: [friendId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, friendId])
+}
+
+model NewsSource {
+  id           String   @id @default(uuid())
+  regionId     String?
+  categoryId   String?
+  headline     String
+  summary      String?
+  sourceUrl    String?
+  fetchedAt    DateTime @default(now())
+  usedForTopic Boolean  @default(false)
+
+  category Category? @relation(fields: [categoryId], references: [id])
+}

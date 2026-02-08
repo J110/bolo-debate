@@ -1,0 +1,44 @@
+# Fly.io configuration for self-hosted LiveKit
+# Deploy with: fly launch --copy-config && fly deploy
+
+app = "bolo-debate-livekit"
+primary_region = "sin"  # Singapore - closest to India
+
+[build]
+  image = "livekit/livekit-server:latest"
+
+[env]
+  LIVEKIT_KEYS = "APIKey123456: SecretKey123456789012345678901234"
+
+[http_service]
+  internal_port = 7880
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[services]]
+  protocol = "udp"
+  internal_port = 7882
+
+  [[services.ports]]
+    port = 7882
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 7881
+
+  [[services.ports]]
+    port = 7881
+
+[checks]
+  [checks.health]
+    port = 7880
+    type = "http"
+    interval = "15s"
+    timeout = "5s"
+    path = "/"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

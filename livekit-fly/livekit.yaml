@@ -1,0 +1,29 @@
+# LiveKit Server Configuration for Production
+port: 7880
+
+rtc:
+  port_range_start: 7882
+  port_range_end: 7882
+  tcp_port: 7881
+  use_external_ip: true
+
+keys:
+  # IMPORTANT: Change these keys before deploying!
+  # Generate new keys with: openssl rand -base64 32
+  APIKey123456: SecretKey123456789012345678901234
+
+redis:
+  # Optional: Add Redis for multi-node deployment
+  # address: your-redis-url
+
+room:
+  auto_create: true
+  empty_timeout: 300
+  enabled_codecs:
+    - mime: audio/opus
+    - mime: video/VP8
+    - mime: video/H264
+
+logging:
+  level: info
+  json: true
