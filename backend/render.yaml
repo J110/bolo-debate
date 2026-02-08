@@ -29,8 +29,10 @@ services:
         sync: false
       - key: LIVEKIT_URL
         sync: false
+      - key: GROQ_API_KEY
+        sync: false  # FREE - get at https://console.groq.com/keys
       - key: OPENAI_API_KEY
-        sync: false
+        sync: false  # Optional - only if Groq unavailable
       - key: PORT
         value: 10000
       - key: HOST

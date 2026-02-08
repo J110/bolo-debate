@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../config/database.js';
+import { ParticipantRole } from '@prisma/client';
 import { authenticate, optionalAuth, getUser } from '../middleware/auth.js';
 import { getLiveKitToken } from '../services/livekit.js';
 import { broadcastToRoom } from '../websocket/index.js';
@@ -319,7 +320,7 @@ export async function roomRoutes(app: FastifyInstance) {
 
       // Determine role - first few people on each side get SPEAKER role
       const isHost = room.hostId === userId;
-      let role = isHost ? 'HOST' : 'LISTENER';
+      let role: ParticipantRole = isHost ? ParticipantRole.HOST : ParticipantRole.LISTENER;
       
       // Auto-promote to SPEAKER if one of the first 3 on your side (not neutral)
       if (!isHost && side !== 'NEUTRAL') {
@@ -327,12 +328,12 @@ export async function roomRoutes(app: FastifyInstance) {
           where: { roomId: id, side, leftAt: null },
         });
         if (sideParticipants < 3) {
-          role = 'SPEAKER';
+          role = ParticipantRole.SPEAKER;
         }
       }
       
       // Speakers start unmuted, listeners start muted
-      const startMuted = role === 'LISTENER';
+      const startMuted = role === ParticipantRole.LISTENER;
 
       // Create or update participant
       const participant = existingParticipant

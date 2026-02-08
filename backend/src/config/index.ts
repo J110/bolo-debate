@@ -13,6 +13,8 @@ const envSchema = z.object({
   LIVEKIT_API_SECRET: z.string().default('secret'),
   LIVEKIT_URL: z.string().default('ws://localhost:7880'),
   OPENAI_API_KEY: z.string().default(''),
+  GROQ_API_KEY: z.string().default(''),
+  OLLAMA_URL: z.string().default('http://localhost:11434'),
   PORT: z.string().default('3000'),
   HOST: z.string().default('0.0.0.0'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
@@ -35,6 +37,8 @@ const env = {
   LIVEKIT_API_SECRET: process.env.LIVEKIT_API_SECRET || 'secret',
   LIVEKIT_URL: process.env.LIVEKIT_URL || 'ws://localhost:7880',
   OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
+  GROQ_API_KEY: process.env.GROQ_API_KEY || '',
+  OLLAMA_URL: process.env.OLLAMA_URL || 'http://localhost:11434',
   PORT: process.env.PORT || '3000',
   HOST: process.env.HOST || '0.0.0.0',
   NODE_ENV: (process.env.NODE_ENV as 'development' | 'production' | 'test') || 'development',
@@ -58,6 +62,12 @@ export const config = {
   },
   openai: {
     apiKey: env.OPENAI_API_KEY,
+  },
+  groq: {
+    apiKey: env.GROQ_API_KEY,
+  },
+  ollama: {
+    url: env.OLLAMA_URL,
   },
   server: {
     port: parseInt(env.PORT, 10),
