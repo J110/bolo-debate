@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:socket_io_client/socket_io_client.dart' as io;
+import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:bolo_debate/core/constants/app_constants.dart';
 
 final websocketServiceProvider = Provider<WebSocketService>((ref) {
@@ -9,94 +9,147 @@ final websocketServiceProvider = Provider<WebSocketService>((ref) {
 });
 
 class WebSocketService {
-  io.Socket? _socket;
+  WebSocketChannel? _channel;
   final _messageController = StreamController<Map<String, dynamic>>.broadcast();
   String? _currentRoomId;
+  Timer? _pingTimer;
+  Timer? _reconnectTimer;
+  bool _isConnecting = false;
+  bool _isConnected = false;
+  StreamSubscription? _subscription;
 
   Stream<Map<String, dynamic>> get messageStream => _messageController.stream;
-  bool get isConnected => _socket?.connected ?? false;
+  bool get isConnected => _isConnected;
 
   void connect() {
-    if (_socket != null && _socket!.connected) return;
+    if (_isConnecting || _isConnected) return;
+    _isConnecting = true;
 
-    _socket = io.io(
-      AppConstants.wsUrl.replaceFirst('ws://', 'http://'),
-      io.OptionBuilder()
-          .setTransports(['websocket'])
-          .enableAutoConnect()
-          .enableReconnection()
-          .setReconnectionDelay(1000)
-          .setReconnectionDelayMax(5000)
-          .build(),
-    );
+    try {
+      final wsUrl = AppConstants.wsUrl.endsWith('/ws') 
+          ? AppConstants.wsUrl 
+          : '${AppConstants.wsUrl}/ws';
+      
+      print('Connecting to WebSocket: $wsUrl');
+      _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
+      
+      _subscription = _channel!.stream.listen(
+        _onMessage,
+        onError: _onError,
+        onDone: _onDone,
+      );
 
-    _socket!.onConnect((_) {
+      _isConnected = true;
+      _isConnecting = false;
       print('WebSocket connected');
+
       // Rejoin room if we were in one
       if (_currentRoomId != null) {
         joinRoom(_currentRoomId!);
       }
-    });
 
-    _socket!.onDisconnect((_) {
-      print('WebSocket disconnected');
-    });
-
-    _socket!.onError((error) {
-      print('WebSocket error: $error');
-    });
-
-    // Listen for all room events
-    _socket!.on('room:joined', (data) => _handleMessage('room:joined', data));
-    _socket!.on('room:update', (data) => _handleMessage('room:update', data));
-    _socket!.on('participant:joined', (data) => _handleMessage('participant:joined', data));
-    _socket!.on('participant:left', (data) => _handleMessage('participant:left', data));
-    _socket!.on('participant:updated', (data) => _handleMessage('participant:updated', data));
-    _socket!.on('message:new', (data) => _handleMessage('message:new', data));
-    _socket!.on('reaction:new', (data) => _handleMessage('reaction:new', data));
-    _socket!.on('hand:raised', (data) => _handleMessage('hand:raised', data));
-    _socket!.on('hand:lowered', (data) => _handleMessage('hand:lowered', data));
-    _socket!.on('speaker:changed', (data) => _handleMessage('speaker:changed', data));
-    _socket!.on('ai:suggestion', (data) => _handleMessage('ai:suggestion', data));
-    _socket!.on('room:ending_soon', (data) => _handleMessage('room:ending_soon', data));
-    _socket!.on('room:ended', (data) => _handleMessage('room:ended', data));
-
-    _socket!.connect();
+      // Start ping timer to keep connection alive
+      _startPingTimer();
+    } catch (e) {
+      print('WebSocket connection error: $e');
+      _isConnecting = false;
+      _scheduleReconnect();
+    }
   }
 
-  void _handleMessage(String type, dynamic data) {
+  void _onMessage(dynamic message) {
     try {
-      final message = data is String ? jsonDecode(data) : data;
-      _messageController.add({
-        'type': type,
-        ...message as Map<String, dynamic>,
-      });
+      final data = jsonDecode(message as String) as Map<String, dynamic>;
+      final type = data['type'] as String?;
+      
+      if (type == 'pong') {
+        // Ping response, connection is alive
+        return;
+      }
+
+      if (type != null) {
+        _messageController.add({
+          'type': type,
+          'payload': data['payload'],
+          'roomId': data['roomId'],
+          'timestamp': data['timestamp'],
+        });
+      }
     } catch (e) {
-      print('Error handling WebSocket message: $e');
+      print('Error parsing WebSocket message: $e');
+    }
+  }
+
+  void _onError(dynamic error) {
+    print('WebSocket error: $error');
+    _handleDisconnect();
+  }
+
+  void _onDone() {
+    print('WebSocket connection closed');
+    _handleDisconnect();
+  }
+
+  void _handleDisconnect() {
+    _isConnected = false;
+    _isConnecting = false;
+    _stopPingTimer();
+    _scheduleReconnect();
+  }
+
+  void _scheduleReconnect() {
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(const Duration(seconds: 2), () {
+      print('Attempting to reconnect WebSocket...');
+      connect();
+    });
+  }
+
+  void _startPingTimer() {
+    _pingTimer?.cancel();
+    _pingTimer = Timer.periodic(const Duration(seconds: 25), (_) {
+      _sendRaw({'type': 'ping'});
+    });
+  }
+
+  void _stopPingTimer() {
+    _pingTimer?.cancel();
+    _pingTimer = null;
+  }
+
+  void _sendRaw(Map<String, dynamic> data) {
+    if (_isConnected && _channel != null) {
+      try {
+        _channel!.sink.add(jsonEncode(data));
+      } catch (e) {
+        print('Error sending WebSocket message: $e');
+      }
     }
   }
 
   void joinRoom(String roomId) {
     _currentRoomId = roomId;
-    _socket?.emit('join_room', {'roomId': roomId});
+    _sendRaw({'type': 'join_room', 'roomId': roomId});
   }
 
   void leaveRoom() {
     if (_currentRoomId != null) {
-      _socket?.emit('leave_room', {'roomId': _currentRoomId});
+      _sendRaw({'type': 'leave_room', 'roomId': _currentRoomId});
       _currentRoomId = null;
     }
   }
 
   void sendMessage(String roomId, String content) {
-    _socket?.emit('send_message', {
+    _sendRaw({
+      'type': 'send_message',
       'roomId': roomId,
       'content': content,
     });
   }
 
   void sendReaction(String roomId, String emoji) {
-    _socket?.emit('send_reaction', {
+    _sendRaw({
+      'type': 'send_reaction',
       'roomId': roomId,
       'emoji': emoji,
     });
@@ -104,8 +157,12 @@ class WebSocketService {
 
   void disconnect() {
     _currentRoomId = null;
-    _socket?.disconnect();
-    _socket = null;
+    _stopPingTimer();
+    _reconnectTimer?.cancel();
+    _subscription?.cancel();
+    _channel?.sink.close();
+    _channel = null;
+    _isConnected = false;
   }
 
   void dispose() {
