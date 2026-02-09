@@ -45,9 +45,7 @@ class SelectedRegionNotifier extends StateNotifier<String?> {
 
   Future<void> setRegion(String? regionId) async {
     state = regionId;
-    if (regionId != null) {
-      await _storage.saveSelectedRegion(regionId);
-    }
+    await _storage.saveSelectedRegion(regionId);
   }
 }
 

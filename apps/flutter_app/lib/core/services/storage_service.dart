@@ -48,9 +48,13 @@ class StorageService {
   }
 
   // Selected region (shared preferences)
-  Future<void> saveSelectedRegion(String regionId) async {
+  Future<void> saveSelectedRegion(String? regionId) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(AppConstants.regionKey, regionId);
+    if (regionId != null) {
+      await prefs.setString(AppConstants.regionKey, regionId);
+    } else {
+      await prefs.remove(AppConstants.regionKey);
+    }
   }
 
   Future<String?> getSelectedRegion() async {

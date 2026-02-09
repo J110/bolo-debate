@@ -47,7 +47,7 @@ class HomeScreen extends ConsumerWidget {
                       Icon(Icons.location_on, size: 14, color: AppColors.primary),
                       const SizedBox(width: 4),
                       Text(
-                        region?.name ?? 'Select region',
+                        region?.name ?? 'All Regions',
                         style: TextStyle(
                           fontSize: 12,
                           color: AppColors.primary,
@@ -310,10 +310,16 @@ class HomeScreen extends ConsumerWidget {
   }
 
   void _showRegionPicker(BuildContext context, WidgetRef ref, List regions) {
+    final selectedRegion = ref.read(selectedRegionProvider);
+    
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       builder: (context) {
         return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.6,
+          ),
           padding: const EdgeInsets.all(16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -324,16 +330,52 @@ class HomeScreen extends ConsumerWidget {
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 16),
-              Expanded(
+              // "All Regions" option
+              ListTile(
+                leading: Icon(
+                  Icons.public,
+                  color: selectedRegion == null ? AppColors.primary : null,
+                ),
+                title: Text(
+                  'All Regions',
+                  style: TextStyle(
+                    fontWeight: selectedRegion == null ? FontWeight.bold : FontWeight.normal,
+                    color: selectedRegion == null ? AppColors.primary : null,
+                  ),
+                ),
+                subtitle: const Text('Show rooms from all regions'),
+                trailing: selectedRegion == null 
+                    ? Icon(Icons.check, color: AppColors.primary)
+                    : null,
+                onTap: () {
+                  ref.read(selectedRegionProvider.notifier).setRegion(null);
+                  Navigator.pop(context);
+                },
+              ),
+              const Divider(),
+              Flexible(
                 child: ListView.builder(
                   shrinkWrap: true,
                   itemCount: regions.length,
                   itemBuilder: (context, index) {
                     final region = regions[index];
+                    final isSelected = selectedRegion == region.id;
                     return ListTile(
-                      leading: const Icon(Icons.location_on_outlined),
-                      title: Text(region.name),
+                      leading: Icon(
+                        Icons.location_on_outlined,
+                        color: isSelected ? AppColors.primary : null,
+                      ),
+                      title: Text(
+                        region.name,
+                        style: TextStyle(
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          color: isSelected ? AppColors.primary : null,
+                        ),
+                      ),
                       subtitle: Text(region.state),
+                      trailing: isSelected 
+                          ? Icon(Icons.check, color: AppColors.primary)
+                          : null,
                       onTap: () {
                         ref.read(selectedRegionProvider.notifier).setRegion(region.id);
                         Navigator.pop(context);
