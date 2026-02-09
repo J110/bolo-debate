@@ -102,23 +102,25 @@ String _extractKeyword(String title) {
 }
 
 /// Topic keywords mapped to curated Pixabay illustration URLs
-/// These are vector illustrations that work well with the duotone overlay
+/// These work well with the duotone artistic overlay
 const Map<String, List<String>> _topicIllustrations = {
-  // Sports
+  // Sports & Games
   'cricket': [
-    'https://cdn.pixabay.com/photo/2021/11/18/08/01/virat-kohli-6806366_640.png',
     'https://cdn.pixabay.com/photo/2013/07/13/10/51/football-157930_640.png',
+    'https://cdn.pixabay.com/photo/2014/04/03/10/32/basketball-311553_640.png',
   ],
   'sports': [
     'https://cdn.pixabay.com/photo/2013/07/13/10/51/football-157930_640.png',
-    'https://cdn.pixabay.com/photo/2014/04/02/10/45/soccer-304620_640.png',
-  ],
-  'football': [
-    'https://cdn.pixabay.com/photo/2013/07/13/10/51/football-157930_640.png',
-    'https://cdn.pixabay.com/photo/2014/04/02/10/45/soccer-304620_640.png',
-  ],
-  'basketball': [
     'https://cdn.pixabay.com/photo/2014/04/03/10/32/basketball-311553_640.png',
+  ],
+  'खेल': [ // Hindi for sports/game
+    'https://cdn.pixabay.com/photo/2013/07/13/10/51/football-157930_640.png',
+  ],
+  'चोट': [ // Hindi for injury
+    'https://cdn.pixabay.com/photo/2017/10/04/09/56/physician-2816640_640.png',
+  ],
+  'स्वास्थ्य': [ // Hindi for health
+    'https://cdn.pixabay.com/photo/2017/10/04/09/56/physician-2816640_640.png',
   ],
   
   // Technology & AI
@@ -131,20 +133,53 @@ const Map<String, List<String>> _topicIllustrations = {
   ],
   'cyber': [
     'https://cdn.pixabay.com/photo/2021/11/05/18/51/cybersecurity-6769298_640.png',
-    'https://cdn.pixabay.com/photo/2017/05/10/12/41/hacker-2300772_640.png',
   ],
   'security': [
     'https://cdn.pixabay.com/photo/2012/04/14/16/26/shield-34407_640.png',
-    'https://cdn.pixabay.com/photo/2021/11/05/18/51/cybersecurity-6769298_640.png',
+  ],
+  'सुरक्षा': [ // Hindi for security
+    'https://cdn.pixabay.com/photo/2012/04/14/16/26/shield-34407_640.png',
+  ],
+  'हथियार': [ // Hindi for weapons
+    'https://cdn.pixabay.com/photo/2012/04/14/16/26/shield-34407_640.png',
+  ],
+  'weapon': [
+    'https://cdn.pixabay.com/photo/2012/04/14/16/26/shield-34407_640.png',
+  ],
+  'आतंक': [ // Hindi for terror
+    'https://cdn.pixabay.com/photo/2012/04/14/16/26/shield-34407_640.png',
   ],
   
-  // Social Media
-  'social media': [
-    'https://cdn.pixabay.com/photo/2016/11/23/14/49/building-1853330_640.png',
-    'https://cdn.pixabay.com/photo/2016/02/01/12/19/background-1173540_640.png',
+  // Entertainment & Media
+  'film': [
+    'https://cdn.pixabay.com/photo/2017/11/24/10/43/admission-2974645_640.png',
+    'https://cdn.pixabay.com/photo/2016/11/22/19/15/hand-1850120_640.png',
   ],
-  'influencer': [
-    'https://cdn.pixabay.com/photo/2016/11/23/14/49/building-1853330_640.png',
+  'movie': [
+    'https://cdn.pixabay.com/photo/2017/11/24/10/43/admission-2974645_640.png',
+  ],
+  'release': [
+    'https://cdn.pixabay.com/photo/2017/11/24/10/43/admission-2974645_640.png',
+  ],
+  'celebrity': [
+    'https://cdn.pixabay.com/photo/2016/11/22/19/15/hand-1850120_640.png',
+    'https://cdn.pixabay.com/photo/2017/11/24/10/43/admission-2974645_640.png',
+  ],
+  'endorsement': [
+    'https://cdn.pixabay.com/photo/2016/11/22/19/15/hand-1850120_640.png',
+  ],
+  'brand': [
+    'https://cdn.pixabay.com/photo/2016/11/22/19/15/hand-1850120_640.png',
+    'https://cdn.pixabay.com/photo/2018/05/30/09/14/city-3440644_640.png',
+  ],
+  'marketing': [
+    'https://cdn.pixabay.com/photo/2016/11/22/19/15/hand-1850120_640.png',
+  ],
+  'strategic': [
+    'https://cdn.pixabay.com/photo/2018/05/30/09/14/city-3440644_640.png',
+  ],
+  'music': [
+    'https://cdn.pixabay.com/photo/2014/04/05/11/38/music-316587_640.png',
   ],
   
   // Business & Economy
@@ -164,9 +199,15 @@ const Map<String, List<String>> _topicIllustrations = {
   'money': [
     'https://cdn.pixabay.com/photo/2017/09/07/08/54/money-2724241_640.png',
   ],
+  'struggling': [
+    'https://cdn.pixabay.com/photo/2017/01/31/20/36/chart-2027905_640.png',
+  ],
   
   // Politics & Government
   'government': [
+    'https://cdn.pixabay.com/photo/2016/10/28/12/18/usa-1778534_640.png',
+  ],
+  'politics': [
     'https://cdn.pixabay.com/photo/2016/10/28/12/18/usa-1778534_640.png',
   ],
   'election': [
@@ -178,11 +219,13 @@ const Map<String, List<String>> _topicIllustrations = {
   'police': [
     'https://cdn.pixabay.com/photo/2012/04/14/16/26/shield-34407_640.png',
   ],
+  'भारतीय': [ // Hindi for Indian
+    'https://cdn.pixabay.com/photo/2016/10/28/12/18/usa-1778534_640.png',
+  ],
   
   // Marriage & Relationships
   'marriage': [
     'https://cdn.pixabay.com/photo/2024/01/03/06/57/pair-8484505_640.png',
-    'https://cdn.pixabay.com/photo/2017/10/26/17/50/undraw-bride-702134_640.png',
   ],
   'wedding': [
     'https://cdn.pixabay.com/photo/2024/01/03/06/57/pair-8484505_640.png',
@@ -191,7 +234,7 @@ const Map<String, List<String>> _topicIllustrations = {
     'https://cdn.pixabay.com/photo/2024/01/03/06/57/pair-8484505_640.png',
   ],
   
-  // Environment
+  // Environment & Energy
   'climate': [
     'https://cdn.pixabay.com/photo/2016/11/29/09/32/climate-change-1868772_640.png',
   ],
@@ -218,20 +261,15 @@ const Map<String, List<String>> _topicIllustrations = {
     'https://cdn.pixabay.com/photo/2017/10/04/09/56/physician-2816640_640.png',
   ],
   
-  // Entertainment
-  'movie': [
-    'https://cdn.pixabay.com/photo/2017/11/24/10/43/admission-2974645_640.png',
-  ],
-  'music': [
-    'https://cdn.pixabay.com/photo/2014/04/05/11/38/music-316587_640.png',
-  ],
-  
   // Speech & Communication
   'speech': [
     'https://cdn.pixabay.com/photo/2013/07/12/18/54/bubble-153710_640.png',
   ],
   'hate': [
     'https://cdn.pixabay.com/photo/2013/07/12/18/54/bubble-153710_640.png',
+  ],
+  'revive': [
+    'https://cdn.pixabay.com/photo/2017/01/31/20/36/chart-2027905_640.png',
   ],
 };
 
@@ -352,67 +390,64 @@ $shareUrl''';
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image section with duotone overlay for cohesive branding
+            // Image section with artistic duotone effect
             SizedBox(
               height: 120,
               width: double.infinity,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // Base illustration image
-                  CachedNetworkImage(
-                    imageUrl: _getImageUrl(room),
-                    fit: BoxFit.cover,
-                    color: Colors.white, // Will be tinted by blend mode
-                    colorBlendMode: BlendMode.modulate,
-                    placeholder: (context, url) => Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [overlayTheme.primary, overlayTheme.secondary],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                      ),
-                      child: const Center(
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      ),
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [overlayTheme.primary, overlayTheme.secondary],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                      ),
-                    ),
-                  ),
-                  // Duotone color overlay - creates uniform branded look
+                  // Base gradient background
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [
-                          overlayTheme.primary.withOpacity(overlayTheme.opacity),
-                          overlayTheme.secondary.withOpacity(overlayTheme.opacity - 0.1),
-                        ],
+                        colors: [overlayTheme.primary, overlayTheme.secondary],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                     ),
                   ),
-                  // Subtle vignette for depth
+                  // Grayscale image with color blend for duotone effect
+                  ColorFiltered(
+                    colorFilter: const ColorFilter.matrix(<double>[
+                      0.33, 0.33, 0.33, 0, 0,
+                      0.33, 0.33, 0.33, 0, 0,
+                      0.33, 0.33, 0.33, 0, 0,
+                      0,    0,    0,    1, 0,
+                    ]),
+                    child: CachedNetworkImage(
+                      imageUrl: _getImageUrl(room),
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => const SizedBox.shrink(),
+                      errorWidget: (context, url, error) => const SizedBox.shrink(),
+                    ),
+                  ),
+                  // Strong color overlay with multiply blend for duotone art effect
                   Container(
                     decoration: BoxDecoration(
-                      gradient: RadialGradient(
-                        center: Alignment.center,
-                        radius: 1.2,
+                      gradient: LinearGradient(
                         colors: [
-                          Colors.transparent,
-                          Colors.black.withOpacity(0.3),
+                          overlayTheme.primary.withOpacity(0.75),
+                          overlayTheme.secondary.withOpacity(0.65),
                         ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      backgroundBlendMode: BlendMode.multiply,
+                    ),
+                  ),
+                  // Lighter highlight overlay for artistic depth
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.white.withOpacity(0.1),
+                          Colors.transparent,
+                          overlayTheme.primary.withOpacity(0.3),
+                        ],
+                        stops: const [0.0, 0.5, 1.0],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
                       ),
                     ),
                   ),
