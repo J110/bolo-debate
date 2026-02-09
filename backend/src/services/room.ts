@@ -234,20 +234,23 @@ async function createStaggeredRooms(
     return;
   }
 
-  // Determine language for AI-hosted rooms - randomly Hindi or English
-  const language = getRandomLanguage();
-
   const now = new Date();
-  let roomIndex = 0;
   
   // Offset based on region index to stagger rooms across regions
   // Each region gets a 3-minute offset (0, 3, 6, 9, 12, 15, 18 minutes)
   const regionOffset = regionIndex * 3;
 
+  // Each region starts with a different category for maximum diversity
+  // This ensures different regions don't create rooms in the same category simultaneously
+  let categoryIndex = regionIndex % categories.length;
+
   // Create LIVE rooms (started in the past at staggered intervals)
   for (let i = 0; i < liveNeeded; i++) {
-    const category = categories[roomIndex % categories.length];
-    roomIndex++;
+    const category = categories[categoryIndex % categories.length];
+    categoryIndex++; // Move to next category for next room
+    
+    // Each room gets random language independently
+    const language = getRandomLanguage();
     
     try {
       const topics = await generateDebateTopics(regionId, category.id, 1);
@@ -281,7 +284,7 @@ async function createStaggeredRooms(
             },
           });
 
-          console.log(`Created LIVE room (${language}): ${topic.title} (started ${minutesAgo}m ago)`);
+          console.log(`Created LIVE room [${region.name}] (${language}): ${topic.title} (started ${minutesAgo}m ago)`);
         }
       }
     } catch (error) {
@@ -291,8 +294,11 @@ async function createStaggeredRooms(
 
   // Create SCHEDULED rooms (staggered into the future)
   for (let i = 0; i < scheduledNeeded; i++) {
-    const category = categories[roomIndex % categories.length];
-    roomIndex++;
+    const category = categories[categoryIndex % categories.length];
+    categoryIndex++; // Move to next category for next room
+    
+    // Each room gets random language independently
+    const language = getRandomLanguage();
     
     try {
       const topics = await generateDebateTopics(regionId, category.id, 1);
@@ -323,7 +329,7 @@ async function createStaggeredRooms(
           },
         });
 
-        console.log(`Created SCHEDULED room (${language}): ${topic.title} (in ${minutesFromNow}m)`);
+        console.log(`Created SCHEDULED room [${region.name}] (${language}): ${topic.title} (in ${minutesFromNow}m)`);
       }
     } catch (error) {
       console.error('Error creating scheduled room:', error);

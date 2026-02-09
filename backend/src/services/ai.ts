@@ -57,39 +57,118 @@ interface DebateSuggestion {
   neutral: string[];
 }
 
-// Fallback topics for when OpenAI is not available
+// Expanded fallback topics - diverse and engaging
 const fallbackTopics: Record<string, { title: string; sideA: string; sideB: string }[]> = {
   Politics: [
     { title: 'Should voting be made mandatory in India?', sideA: 'Yes, mandatory', sideB: 'No, voluntary' },
     { title: 'Is decentralization the key to better governance?', sideA: 'Support decentralization', sideB: 'Prefer centralization' },
     { title: 'Should there be term limits for elected officials?', sideA: 'Yes, term limits', sideB: 'No term limits' },
+    { title: 'Should India have a presidential system?', sideA: 'Yes, presidential', sideB: 'No, parliamentary' },
+    { title: 'Is coalition government good for democracy?', sideA: 'Yes, diverse views', sideB: 'No, unstable' },
+    { title: 'Should MPs be required to attend Parliament sessions?', sideA: 'Yes, mandatory', sideB: 'No, flexibility needed' },
+    { title: 'Should political parties be funded by government?', sideA: 'Yes, transparency', sideB: 'No, private funding' },
+    { title: 'Is reservation policy still needed in India?', sideA: 'Yes, still needed', sideB: 'No, merit-based' },
+    { title: 'Should minimum education be required for politicians?', sideA: 'Yes, qualification needed', sideB: 'No, democracy for all' },
+    { title: 'Should governors have more or less power?', sideA: 'More power', sideB: 'Less power' },
+    { title: 'Is one nation one election a good idea?', sideA: 'Yes, efficient', sideB: 'No, federal issues' },
+    { title: 'Should MLAs face anti-defection laws?', sideA: 'Yes, strict laws', sideB: 'No, freedom of choice' },
   ],
   Business: [
     { title: 'Should startups prioritize profit or growth?', sideA: 'Profit first', sideB: 'Growth first' },
     { title: 'Is remote work better for productivity?', sideA: 'Remote is better', sideB: 'Office is better' },
     { title: 'Should India focus more on manufacturing or services?', sideA: 'Manufacturing', sideB: 'Services' },
+    { title: 'Are family businesses better than corporate?', sideA: 'Family business', sideB: 'Corporate structure' },
+    { title: 'Should gig workers get employee benefits?', sideA: 'Yes, benefits needed', sideB: 'No, flexibility trade-off' },
+    { title: 'Is entrepreneurship better than a job?', sideA: 'Entrepreneurship', sideB: 'Stable job' },
+    { title: 'Should India attract more FDI or support local?', sideA: 'More FDI', sideB: 'Support local' },
+    { title: 'Are MBAs overrated in today\'s world?', sideA: 'Yes, overrated', sideB: 'No, still valuable' },
+    { title: 'Should companies have 4-day work weeks?', sideA: 'Yes, productivity', sideB: 'No, 5 days needed' },
+    { title: 'Is moonlighting ethical for employees?', sideA: 'Yes, fair', sideB: 'No, unethical' },
+    { title: 'Should India have more unicorn startups or stable SMEs?', sideA: 'More unicorns', sideB: 'More SMEs' },
+    { title: 'Is work from home killing career growth?', sideA: 'Yes, limiting', sideB: 'No, flexible growth' },
   ],
   Sports: [
     { title: 'Should IPL have salary caps?', sideA: 'Yes, for fairness', sideB: 'No, free market' },
     { title: 'Is cricket getting too much attention over other sports?', sideA: 'Yes, too much', sideB: 'No, deserved' },
     { title: 'Should esports be recognized as an official sport?', sideA: 'Yes, recognize', sideB: 'No, not a sport' },
+    { title: 'Should Indian athletes get more government support?', sideA: 'Yes, more support', sideB: 'Current is enough' },
+    { title: 'Is T20 cricket ruining test cricket?', sideA: 'Yes, hurting tests', sideB: 'No, different formats' },
+    { title: 'Should sports betting be legalized in India?', sideA: 'Yes, legalize', sideB: 'No, keep banned' },
+    { title: 'Are foreign coaches better for Indian teams?', sideA: 'Yes, foreign', sideB: 'No, Indian coaches' },
+    { title: 'Should India host more international sports events?', sideA: 'Yes, more events', sideB: 'No, focus on players' },
+    { title: 'Is kabaddi making a real comeback?', sideA: 'Yes, growing', sideB: 'No, still niche' },
+    { title: 'Should cricket players play all formats?', sideA: 'Yes, all formats', sideB: 'No, specialize' },
+    { title: 'Is Olympic gold more prestigious than World Cup?', sideA: 'Olympic gold', sideB: 'World Cup' },
+    { title: 'Should retired players become commentators or coaches?', sideA: 'Commentators', sideB: 'Coaches' },
   ],
   Technology: [
     { title: 'Will AI replace most jobs in the next decade?', sideA: 'Yes, major impact', sideB: 'No, limited impact' },
     { title: 'Should social media be regulated?', sideA: 'Yes, regulate', sideB: 'No, free speech' },
     { title: 'Is privacy more important than convenience?', sideA: 'Privacy first', sideB: 'Convenience first' },
+    { title: 'Should children have smartphones before 13?', sideA: 'Yes, early exposure', sideB: 'No, too young' },
+    { title: 'Is India ready for 5G revolution?', sideA: 'Yes, ready', sideB: 'No, infrastructure lacking' },
+    { title: 'Should coding be mandatory in schools?', sideA: 'Yes, essential skill', sideB: 'No, optional' },
+    { title: 'Are electric vehicles the future of India?', sideA: 'Yes, EVs are future', sideB: 'No, hybrid better' },
+    { title: 'Should data localization be mandatory?', sideA: 'Yes, security', sideB: 'No, global flow' },
+    { title: 'Is UPI better than credit cards?', sideA: 'Yes, UPI better', sideB: 'No, cards better' },
+    { title: 'Should India develop its own social media platforms?', sideA: 'Yes, Indian platforms', sideB: 'No, global is fine' },
+    { title: 'Is AI-generated content real creativity?', sideA: 'Yes, new creativity', sideB: 'No, not original' },
+    { title: 'Should there be digital detox days?', sideA: 'Yes, needed', sideB: 'No, impractical' },
   ],
   Entertainment: [
     { title: 'Are OTT platforms better than traditional cinema?', sideA: 'OTT is better', sideB: 'Cinema is better' },
     { title: 'Should celebrities speak on political issues?', sideA: 'Yes, they should', sideB: 'No, stay neutral' },
     { title: 'Is regional content better than Bollywood now?', sideA: 'Regional is better', sideB: 'Bollywood still rules' },
+    { title: 'Are remakes killing original content?', sideA: 'Yes, killing creativity', sideB: 'No, good adaptations' },
+    { title: 'Should movie tickets be price capped?', sideA: 'Yes, affordable', sideB: 'No, market decides' },
+    { title: 'Is stand-up comedy the new entertainment king?', sideA: 'Yes, comedy rising', sideB: 'No, still niche' },
+    { title: 'Should award shows be taken seriously?', sideA: 'Yes, recognition', sideB: 'No, just PR' },
+    { title: 'Are influencers replacing traditional celebrities?', sideA: 'Yes, new era', sideB: 'No, celebs still rule' },
+    { title: 'Is binge-watching harmful?', sideA: 'Yes, unhealthy', sideB: 'No, personal choice' },
+    { title: 'Should there be more content regulation?', sideA: 'Yes, regulate', sideB: 'No, creative freedom' },
+    { title: 'Are short videos killing attention spans?', sideA: 'Yes, harmful', sideB: 'No, just evolution' },
+    { title: 'Is music industry better with streaming?', sideA: 'Yes, more access', sideB: 'No, artists suffer' },
   ],
   default: [
     { title: 'Is work-life balance achievable in today\'s world?', sideA: 'Yes, achievable', sideB: 'No, unrealistic' },
     { title: 'Should education be completely free?', sideA: 'Yes, free for all', sideB: 'No, some cost needed' },
     { title: 'Is urban life better than rural life?', sideA: 'Urban is better', sideB: 'Rural is better' },
+    { title: 'Should plastic be completely banned?', sideA: 'Yes, ban it', sideB: 'No, regulate instead' },
+    { title: 'Is joint family system still relevant?', sideA: 'Yes, valuable', sideB: 'No, outdated' },
+    { title: 'Should India have uniform civil code?', sideA: 'Yes, uniform', sideB: 'No, diversity' },
+    { title: 'Is online education as effective as classroom?', sideA: 'Yes, equally good', sideB: 'No, classroom better' },
+    { title: 'Should tipping culture be adopted in India?', sideA: 'Yes, adopt it', sideB: 'No, fair wages instead' },
+    { title: 'Is arranged marriage still a good system?', sideA: 'Yes, works well', sideB: 'No, outdated' },
+    { title: 'Should public transport be free?', sideA: 'Yes, free for all', sideB: 'No, subsidies enough' },
+    { title: 'Is vegetarianism better for health?', sideA: 'Yes, healthier', sideB: 'No, balance needed' },
+    { title: 'Should there be a retirement age limit?', sideA: 'Yes, make room', sideB: 'No, experience matters' },
   ],
 };
+
+// Region-specific topic variations for local flavor
+const regionTopicPrefixes: Record<string, string[]> = {
+  'Mumbai': ['In Mumbai,', 'For Mumbaikars,', 'In Maharashtra,'],
+  'Delhi NCR': ['In Delhi,', 'For Delhi-NCR,', 'In the capital,'],
+  'Bangalore': ['In Bangalore,', 'For Bengaluru,', 'In Karnataka,'],
+  'Chennai': ['In Chennai,', 'For Tamil Nadu,', 'In South India,'],
+  'Hyderabad': ['In Hyderabad,', 'For Telangana,', 'In the Deccan,'],
+  'Kolkata': ['In Kolkata,', 'For West Bengal,', 'In East India,'],
+  'National': ['For India,', 'Across India,', 'For all Indians,'],
+};
+
+// Track recently used topics to avoid duplicates
+const recentlyUsedTopics = new Set<string>();
+const MAX_RECENT_TOPICS = 50;
+
+function addToRecentTopics(title: string) {
+  recentlyUsedTopics.add(title);
+  if (recentlyUsedTopics.size > MAX_RECENT_TOPICS) {
+    const first = recentlyUsedTopics.values().next().value as string | undefined;
+    if (first) {
+      recentlyUsedTopics.delete(first);
+    }
+  }
+}
 
 // Get a topic from cache first, only generate if needed
 export async function generateDebateTopics(
@@ -136,13 +215,37 @@ export async function generateDebateTopics(
     }));
   }
 
-  // Not enough cached topics - use fallback (don't call OpenAI on each request)
+  // Not enough cached topics - use fallback with duplicate prevention
+  // First, get currently active room titles to avoid duplicates
+  const activeRooms = await prisma.room.findMany({
+    where: {
+      status: { in: ['LIVE', 'SCHEDULED'] },
+      isAiHosted: true,
+    },
+    select: { title: true },
+  });
+  const activeTopicTitles = new Set(activeRooms.map(r => r.title));
+
   const categoryTopics = fallbackTopics[category.name] || fallbackTopics.default;
-  const shuffled = categoryTopics.sort(() => Math.random() - 0.5);
+  // Also include default topics for variety
+  const allTopics = [...categoryTopics, ...fallbackTopics.default];
   
-  console.log(`⚠️ No cached topics for ${category.name}, using fallback`);
+  // Filter out recently used and currently active topics
+  const availableTopics = allTopics.filter(t => 
+    !recentlyUsedTopics.has(t.title) && !activeTopicTitles.has(t.title)
+  );
   
-  return shuffled.slice(0, count).map(topic => ({
+  // If all topics are used, just shuffle all topics (reset cycle)
+  const topicsToUse = availableTopics.length >= count ? availableTopics : allTopics;
+  const shuffled = topicsToUse.sort(() => Math.random() - 0.5);
+  
+  console.log(`⚠️ No cached topics for ${category.name} in ${region.name}, using fallback (${availableTopics.length} unique available)`);
+  
+  const selectedTopics = shuffled.slice(0, count);
+  // Track the selected topics
+  selectedTopics.forEach(t => addToRecentTopics(t.title));
+  
+  return selectedTopics.map(topic => ({
     title: topic.title,
     description: `A debate topic for ${region.name} community`,
     sideALabel: topic.sideA,
@@ -271,27 +374,41 @@ async function callLLM(
 ): Promise<{ title: string; description: string; sideALabel: string; sideBLabel: string }[]> {
   // For National region, generate pan-India topics
   const isNational = region.name === 'National';
-  const regionContext = isNational 
-    ? 'This is for pan-India discussions, covering topics relevant to all of India.'
-    : `Region: ${region.name}, ${region.state}. Topics should be relevant to local issues and culture.`;
   
-  const prompt = `Generate ${count} engaging debate topics for an audio discussion platform in India.
+  // Region-specific context for local relevance
+  const regionExamples: Record<string, string> = {
+    'Mumbai': 'local train issues, Marathi manoos, housing costs, BMC policies, film industry',
+    'Delhi NCR': 'pollution, metro expansion, water crisis, political dynamics, NCR development',
+    'Bangalore': 'traffic congestion, IT industry, Kannada language, startup culture, lake restoration',
+    'Chennai': 'Tamil culture, IT corridor, metro water, language politics, film industry',
+    'Hyderabad': 'IT growth, old city vs new city, Telugu pride, pharma industry, infrastructure',
+    'Kolkata': 'heritage preservation, political scene, cultural events, metro expansion, employment',
+  };
+  
+  const localContext = regionExamples[region.name] || 'local governance, infrastructure, culture';
+  
+  const regionContext = isNational 
+    ? 'Generate pan-India topics relevant to all Indians - national policies, economy, education, healthcare.'
+    : `Generate topics specific to ${region.name}, ${region.state}. Consider: ${localContext}. Make topics feel LOCAL and relevant to residents.`;
+  
+  const prompt = `Generate ${count} UNIQUE and DIVERSE debate topics for an audio discussion platform in India.
 
 ${regionContext}
 Category: ${category.name}
 
-Requirements:
-1. Topics should be in ENGLISH only
-2. Topics should be relevant to ${isNational ? 'national issues affecting all Indians' : 'the local region and current affairs'}
-3. Topics should be debatable with clear opposing viewpoints
-4. Topics should be respectful and not promote hate or discrimination
-5. Topics should be engaging and encourage healthy discussion
+CRITICAL REQUIREMENTS:
+1. Topics must be in ENGLISH only
+2. Topics must be CURRENT and TIMELY - reference recent events, trends, or ongoing issues
+3. Topics must be UNIQUE - do NOT use generic topics like "work-life balance" or "AI replacing jobs"
+4. Topics must be DEBATABLE with clear opposing viewpoints
+5. Topics should be ENGAGING and provocative (but respectful)
+6. ${isNational ? 'Focus on national-level issues that affect all Indians' : 'Focus on LOCAL issues specific to ' + region.name + ' - avoid generic topics'}
 
 For each topic, provide:
-- title: A compelling question or statement in English (max 100 chars)
-- description: Brief context about the topic (max 200 chars)
-- sideALabel: Label for one side (e.g., "Support", "In Favor", "Yes") (max 30 chars)
-- sideBLabel: Label for opposing side (e.g., "Oppose", "Against", "No") (max 30 chars)
+- title: A compelling, specific question in English (max 100 chars) - make it feel fresh and relevant
+- description: Brief context about why this topic matters NOW (max 200 chars)
+- sideALabel: Clear position label (e.g., "Support", "Yes", "In Favor") (max 30 chars)
+- sideBLabel: Clear opposing position (e.g., "Oppose", "No", "Against") (max 30 chars)
 
 Respond in JSON format: { "topics": [...] }`;
 
@@ -340,25 +457,25 @@ async function callOllama(
   // For National region, generate pan-India topics
   const isNational = region.name === 'National';
   const regionContext = isNational 
-    ? 'Pan-India discussions covering topics relevant to all of India.'
-    : `Region: ${region.name}, ${region.state}. Topics should be relevant to local issues.`;
+    ? 'Pan-India topics relevant to all Indians - national policies, economy, education.'
+    : `Topics specific to ${region.name}, ${region.state}. Focus on LOCAL issues that matter to residents.`;
   
-  const prompt = `Generate ${count} engaging debate topics for an audio discussion platform in India.
+  const prompt = `Generate ${count} UNIQUE debate topics for an Indian audio discussion platform.
 
 ${regionContext}
 Category: ${category.name}
 
 Requirements:
-1. Topics must be in ENGLISH only
-2. Topics should be relevant to ${isNational ? 'national issues' : 'the local region'}
-3. Topics should be debatable with clear opposing viewpoints
-4. Topics should be respectful
+1. Topics MUST be in ENGLISH only
+2. Topics must be CURRENT and specific - avoid generic topics
+3. Topics must be DEBATABLE with clear opposing viewpoints
+4. ${isNational ? 'Focus on national-level Indian issues' : 'Focus on LOCAL ' + region.name + ' issues'}
 
-For each topic, provide:
-- title: A compelling question in English (max 100 chars)
-- description: Brief context (max 200 chars)
-- sideALabel: Label for one side (max 30 chars)
-- sideBLabel: Label for opposing side (max 30 chars)
+For each topic provide JSON with:
+- title: Specific question in English (max 100 chars)
+- description: Why this matters now (max 200 chars)
+- sideALabel: Position label (max 30 chars)
+- sideBLabel: Opposing position (max 30 chars)
 
 Respond ONLY with valid JSON: { "topics": [...] }`;
 
