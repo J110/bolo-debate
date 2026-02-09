@@ -1,11 +1,48 @@
 import { FastifyInstance } from 'fastify';
 import { prisma } from '../config/database.js';
+import { ensureMinimumRoomsPerRegion } from '../services/room.js';
 
 // Simplified regions and categories to keep
 const KEEP_REGIONS = ['National', 'Delhi NCR', 'Delhi', 'Mumbai', 'Bangalore', 'Hyderabad', 'Chennai', 'Kolkata'];
 const KEEP_CATEGORIES = ['Politics', 'Technology', 'Business', 'Sports', 'Entertainment'];
 
 export async function regionRoutes(app: FastifyInstance) {
+  // Reset all rooms and topics - regenerate fresh
+  app.post('/reset', async (_request, reply) => {
+    console.log('🔄 Resetting all rooms and topics...');
+    
+    // Delete all topic queue (old regional language topics)
+    const deletedTopics = await prisma.topicQueue.deleteMany({});
+    console.log(`  Deleted ${deletedTopics.count} cached topics`);
+    
+    // Delete all AI-hosted rooms
+    const deletedRooms = await prisma.room.deleteMany({
+      where: { isAiHosted: true },
+    });
+    console.log(`  Deleted ${deletedRooms.count} AI-hosted rooms`);
+    
+    // Regenerate rooms for all regions
+    console.log('  Creating fresh rooms for all regions...');
+    await ensureMinimumRoomsPerRegion();
+    
+    // Get new counts
+    const liveRooms = await prisma.room.count({ where: { status: 'LIVE' } });
+    const scheduledRooms = await prisma.room.count({ where: { status: 'SCHEDULED' } });
+    const regions = await prisma.region.findMany();
+    
+    console.log(`✅ Reset complete: ${liveRooms} live, ${scheduledRooms} scheduled rooms`);
+    
+    return reply.send({
+      success: true,
+      data: {
+        deletedTopics: deletedTopics.count,
+        deletedRooms: deletedRooms.count,
+        newLiveRooms: liveRooms,
+        newScheduledRooms: scheduledRooms,
+        regions: regions.map(r => r.name),
+      },
+    });
+  });
   // Admin endpoint to cleanup extra regions/categories and add National
   app.post('/cleanup', async (_request, reply) => {
     console.log('🧹 Running manual cleanup...');

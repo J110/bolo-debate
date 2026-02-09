@@ -184,7 +184,9 @@ export async function ensureMinimumRoomsPerRegion(): Promise<void> {
 
   console.log(`📍 Ensuring rooms for ${regions.length} regions: ${regions.map(r => r.name).join(', ')}`);
 
-  for (const region of regions) {
+  for (let regionIndex = 0; regionIndex < regions.length; regionIndex++) {
+    const region = regions[regionIndex];
+    
     // Count live rooms
     const liveCount = await prisma.room.count({
       where: { regionId: region.id, status: 'LIVE' },
@@ -210,7 +212,8 @@ export async function ensureMinimumRoomsPerRegion(): Promise<void> {
 
     if (liveRoomsNeeded > 0 || upcomingNeeded > 0) {
       console.log(`  📍 ${region.name}: creating ${liveRoomsNeeded} live, ${upcomingNeeded} scheduled`);
-      await createStaggeredRooms(region.id, liveRoomsNeeded, upcomingNeeded);
+      // Pass region index to stagger rooms across regions
+      await createStaggeredRooms(region.id, liveRoomsNeeded, upcomingNeeded, regionIndex);
     } else {
       console.log(`  ✓ ${region.name}: has ${liveCount} live, ${scheduledCount} scheduled`);
     }
@@ -220,7 +223,8 @@ export async function ensureMinimumRoomsPerRegion(): Promise<void> {
 async function createStaggeredRooms(
   regionId: string, 
   liveNeeded: number, 
-  scheduledNeeded: number
+  scheduledNeeded: number,
+  regionIndex: number = 0
 ): Promise<void> {
   const categories = await prisma.category.findMany();
   const region = await prisma.region.findUnique({ where: { id: regionId } });
@@ -230,13 +234,17 @@ async function createStaggeredRooms(
     return;
   }
 
-  // Determine language for AI-hosted rooms based on region
+  // Determine language for AI-hosted rooms - randomly Hindi or English
   const language = getRandomLanguage();
 
   const now = new Date();
   let roomIndex = 0;
+  
+  // Offset based on region index to stagger rooms across regions
+  // Each region gets a 3-minute offset (0, 3, 6, 9, 12, 15, 18 minutes)
+  const regionOffset = regionIndex * 3;
 
-  // Create LIVE rooms (started in the past at staggered 6-min intervals)
+  // Create LIVE rooms (started in the past at staggered intervals)
   for (let i = 0; i < liveNeeded; i++) {
     const category = categories[roomIndex % categories.length];
     roomIndex++;
@@ -247,9 +255,9 @@ async function createStaggeredRooms(
       if (topics.length > 0) {
         const topic = topics[0];
         
-        // Stagger start times in the past at 6-minute intervals
-        // Room 0: started 6 min ago, Room 1: started 12 min ago, etc.
-        const minutesAgo = (i + 1) * ROOM_INTERVAL_MINUTES;
+        // Stagger start times: base offset per region + room index offset
+        // Region 0: 3 min ago, Region 1: 6 min ago, Region 2: 9 min ago, etc.
+        const minutesAgo = regionOffset + 3 + (i * ROOM_INTERVAL_MINUTES);
         const startedAt = new Date(now.getTime() - minutesAgo * 60 * 1000);
         const endsAt = new Date(startedAt.getTime() + ROOM_DURATION_MS);
         
@@ -264,7 +272,7 @@ async function createStaggeredRooms(
               type: 'DEBATE',
               sideALabel: topic.sideALabel,
               sideBLabel: topic.sideBLabel,
-              language, // Regional language for AI-hosted rooms
+              language,
               scheduledAt: startedAt,
               startedAt: startedAt,
               endsAt: endsAt,
@@ -281,7 +289,7 @@ async function createStaggeredRooms(
     }
   }
 
-  // Create SCHEDULED rooms (staggered every 6 minutes into the future)
+  // Create SCHEDULED rooms (staggered into the future)
   for (let i = 0; i < scheduledNeeded; i++) {
     const category = categories[roomIndex % categories.length];
     roomIndex++;
@@ -292,8 +300,9 @@ async function createStaggeredRooms(
       if (topics.length > 0) {
         const topic = topics[0];
         
-        // Schedule at 6, 12, 18, 24, 30 minutes from now
-        const minutesFromNow = (i + 1) * ROOM_INTERVAL_MINUTES;
+        // Stagger scheduled times: base offset per region + room index offset
+        // Region 0: in 3 min, Region 1: in 6 min, Region 2: in 9 min, etc.
+        const minutesFromNow = regionOffset + 3 + (i * ROOM_INTERVAL_MINUTES);
         const scheduledAt = new Date(now.getTime() + minutesFromNow * 60 * 1000);
         // Round to nearest minute for cleaner times
         scheduledAt.setSeconds(0, 0);
@@ -307,7 +316,7 @@ async function createStaggeredRooms(
             type: 'DEBATE',
             sideALabel: topic.sideALabel,
             sideBLabel: topic.sideBLabel,
-            language, // Regional language for AI-hosted rooms
+            language,
             scheduledAt,
             status: 'SCHEDULED',
             isAiHosted: true,
