@@ -44,9 +44,14 @@ await app.register(jwt, {
 
 await app.register(websocket);
 
-// Health check
+// Health check - responds immediately even if startup tasks are still running
 app.get('/health', async () => {
-  return { status: 'ok', timestamp: new Date().toISOString() };
+  return { status: 'ok', timestamp: new Date().toISOString(), version: '1.1.0' };
+});
+
+// Root endpoint
+app.get('/', async () => {
+  return { name: 'Bolo Debate API', status: 'running', timestamp: new Date().toISOString() };
 });
 
 // Register routes
@@ -78,11 +83,13 @@ const KEEP_REGIONS = ['National', 'Delhi NCR', 'Delhi', 'Mumbai', 'Bangalore', '
 const KEEP_CATEGORIES = ['Politics', 'Technology', 'Business', 'Sports', 'Entertainment'];
 
 // Cleanup old rooms on startup and populate topic cache
+// This runs in background and won't crash the server if it fails
 async function startupCleanup() {
-  const { prisma } = await import('./config/database.js');
-  const { batchGenerateTopics } = await import('./services/ai.js');
-  
-  console.log('🧹 Running startup cleanup...');
+  try {
+    const { prisma } = await import('./config/database.js');
+    const { batchGenerateTopics } = await import('./services/ai.js');
+    
+    console.log('🧹 Running startup cleanup...');
   
   // === SIMPLIFY REGIONS AND CATEGORIES ===
   // Get all regions and categories
@@ -164,6 +171,10 @@ async function startupCleanup() {
   await ensureMinimumRoomsPerRegion();
   
   console.log('✅ Startup cleanup complete');
+  } catch (error) {
+    console.error('⚠️ Startup cleanup failed (server will continue):', error);
+    // Don't throw - let server continue running
+  }
 }
 
 // Start server
@@ -172,8 +183,10 @@ async function start() {
     // Connect to database
     await connectDatabase();
     
-    // Run startup cleanup
-    await startupCleanup();
+    // Run startup cleanup in background - don't block server start
+    startupCleanup().catch(err => {
+      console.error('⚠️ Background startup cleanup failed:', err);
+    });
 
     // Start the scheduler
     startScheduler();
