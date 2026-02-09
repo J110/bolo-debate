@@ -4,7 +4,7 @@ import { broadcastToRoom } from '../websocket/index.js';
 import { generateDebateTopics, generateDebateSuggestions, generateSubtopics } from './ai.js';
 
 const ROOM_DURATION_MS = 30 * 60 * 1000; // 30 minutes
-const TARGET_LIVE_ROOMS_PER_REGION = 5;
+const TARGET_LIVE_ROOMS_PER_REGION = 3; // Reduced for lighter load
 const ROOM_INTERVAL_MINUTES = 6; // New room every 6 minutes
 
 // Map states to their primary language for AI-hosted rooms
@@ -185,8 +185,11 @@ export async function sendEndingSoonWarning(): Promise<void> {
 }
 
 export async function ensureMinimumRoomsPerRegion(): Promise<void> {
-  const regions = await prisma.region.findMany();
+  // Limit to first 3 regions to keep it manageable (reduces API calls)
+  const regions = await prisma.region.findMany({ take: 3 });
   const now = new Date();
+
+  console.log(`📍 Creating rooms for ${regions.length} regions: ${regions.map(r => r.name).join(', ')}`);
 
   for (const region of regions) {
     // Count live rooms
