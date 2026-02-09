@@ -927,7 +927,23 @@ Respond in JSON format:
         const topics = parsed.topics || [];
 
         for (const topic of topics) {
+          // Skip if marked as skipped or has invalid title
           if (topic.skipped) continue;
+          if (!topic.title || topic.title.length < 10) continue;
+          
+          // Skip topics with "skipped" or invalid content in title
+          const lowerTitle = topic.title.toLowerCase();
+          if (
+            lowerTitle.includes('skipped') ||
+            lowerTitle.includes('not suitable') ||
+            lowerTitle.includes('cannot generate') ||
+            lowerTitle.includes('unable to') ||
+            lowerTitle.startsWith('n/a') ||
+            lowerTitle.startsWith('none')
+          ) {
+            console.log(`  ⏭️ Skipping invalid topic: ${topic.title}`);
+            continue;
+          }
 
           const originalItem = batch[topic.originalIndex - 1];
           if (!originalItem) continue;
