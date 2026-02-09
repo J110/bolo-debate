@@ -18,17 +18,22 @@ final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
 
   return GoRouter(
-    initialLocation: '/home',
+    initialLocation: '/auth/onboarding',
     debugLogDiagnostics: true,
     redirect: (context, state) {
       final isLoggedIn = authState.isLoggedIn;
       final isLoading = authState.isLoading;
       final isAuthRoute = state.matchedLocation.startsWith('/auth');
 
-      // Don't redirect while loading
-      if (isLoading) return null;
+      // While loading auth state, stay on auth routes or redirect to onboarding
+      if (isLoading) {
+        if (!isAuthRoute) {
+          return '/auth/onboarding';
+        }
+        return null;
+      }
 
-      // Redirect to login if not logged in and not on auth route
+      // Redirect to onboarding if not logged in and not on auth route
       if (!isLoggedIn && !isAuthRoute) {
         return '/auth/onboarding';
       }
