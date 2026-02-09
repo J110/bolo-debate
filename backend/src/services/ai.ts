@@ -260,9 +260,9 @@ export async function batchGenerateTopics(topicsPerCategory: number = 10): Promi
 }
 
 // Groq model configuration
-// Using llama3-8b-8192 for better rate limits: RPM 30, TPM 30K
-// Alternative: mixtral-8x7b-32768 for better multilingual support
-const GROQ_MODEL = 'llama3-8b-8192';
+// Using llama-3.1-8b-instant (replacement for deprecated llama3-8b-8192)
+// Good rate limits and multilingual support
+const GROQ_MODEL = 'llama-3.1-8b-instant';
 
 // Generate topics using available AI provider (Groq > Ollama > OpenAI)
 async function generateTopicsWithAI(
