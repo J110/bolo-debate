@@ -116,6 +116,21 @@ export async function regionRoutes(app: FastifyInstance) {
     
     const now = new Date();
     
+    // Delete invalid topics (skipped, bad titles, etc.)
+    const deletedInvalid = await prisma.topicQueue.deleteMany({
+      where: {
+        OR: [
+          { title: { contains: 'Skipped' } },
+          { title: { contains: 'not suitable' } },
+          { title: { contains: 'cannot generate' } },
+          { title: { startsWith: 'N/A' } },
+        ],
+      },
+    });
+    if (deletedInvalid.count > 0) {
+      console.log(`  Deleted ${deletedInvalid.count} invalid topics`);
+    }
+    
     // Only delete USED or EXPIRED topics (preserve fresh trending topics)
     const deletedTopics = await prisma.topicQueue.deleteMany({
       where: {
