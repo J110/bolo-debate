@@ -6,6 +6,13 @@ import { authenticate, optionalAuth, getUser } from '../middleware/auth.js';
 import { getLiveKitToken } from '../services/livekit.js';
 import { broadcastToRoom } from '../websocket/index.js';
 
+// Supported languages for room discussions
+const SUPPORTED_LANGUAGES = [
+  'English', 'Hindi', 'Tamil', 'Telugu', 'Kannada', 'Malayalam',
+  'Bengali', 'Marathi', 'Gujarati', 'Punjabi', 'Odia', 'Assamese',
+  'Kashmiri', 'Konkani', 'Manipuri', 'Nepali', 'Sanskrit', 'Urdu',
+] as const;
+
 const createRoomSchema = z.object({
   title: z.string().min(5).max(200),
   description: z.string().max(1000).optional(),
@@ -14,6 +21,7 @@ const createRoomSchema = z.object({
   type: z.enum(['DEBATE', 'DISCUSSION']),
   sideALabel: z.string().max(50).optional(),
   sideBLabel: z.string().max(50).optional(),
+  language: z.enum(SUPPORTED_LANGUAGES).optional().default('English'),
   scheduledAt: z.string().datetime(),
 });
 

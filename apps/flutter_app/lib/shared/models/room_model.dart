@@ -55,6 +55,13 @@ class Category extends Equatable {
   List<Object?> get props => [id, name, icon, color];
 }
 
+// Supported languages for room discussions
+const List<String> supportedLanguages = [
+  'English', 'Hindi', 'Tamil', 'Telugu', 'Kannada', 'Malayalam',
+  'Bengali', 'Marathi', 'Gujarati', 'Punjabi', 'Odia', 'Assamese',
+  'Kashmiri', 'Konkani', 'Manipuri', 'Nepali', 'Sanskrit', 'Urdu',
+];
+
 class Room extends Equatable {
   final String id;
   final String title;
@@ -65,6 +72,7 @@ class Room extends Equatable {
   final RoomType type;
   final String? sideALabel;
   final String? sideBLabel;
+  final String language; // Discussion language
   final DateTime scheduledAt;
   final DateTime? startedAt;
   final DateTime? endsAt;
@@ -85,6 +93,7 @@ class Room extends Equatable {
     required this.type,
     this.sideALabel,
     this.sideBLabel,
+    this.language = 'English',
     required this.scheduledAt,
     this.startedAt,
     this.endsAt,
@@ -107,6 +116,7 @@ class Room extends Equatable {
       type: json['type'] == 'DEBATE' ? RoomType.debate : RoomType.discussion,
       sideALabel: json['sideALabel'] as String?,
       sideBLabel: json['sideBLabel'] as String?,
+      language: json['language'] as String? ?? 'English',
       scheduledAt: DateTime.parse(json['scheduledAt'] as String),
       startedAt: json['startedAt'] != null ? DateTime.parse(json['startedAt'] as String) : null,
       endsAt: json['endsAt'] != null ? DateTime.parse(json['endsAt'] as String) : null,
@@ -154,6 +164,7 @@ class Room extends Equatable {
         type,
         sideALabel,
         sideBLabel,
+        language,
         scheduledAt,
         startedAt,
         endsAt,

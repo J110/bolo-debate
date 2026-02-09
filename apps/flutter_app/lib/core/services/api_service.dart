@@ -141,6 +141,7 @@ class ApiService {
     required String type,
     String? sideALabel,
     String? sideBLabel,
+    String language = 'English',
     required DateTime scheduledAt,
   }) async {
     final response = await _dio.post('/rooms', data: {
@@ -151,6 +152,7 @@ class ApiService {
       'type': type,
       if (sideALabel != null) 'sideALabel': sideALabel,
       if (sideBLabel != null) 'sideBLabel': sideBLabel,
+      'language': language,
       'scheduledAt': scheduledAt.toUtc().toIso8601String(),
     });
     return response.data;

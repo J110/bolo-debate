@@ -7,6 +7,20 @@ const ROOM_DURATION_MS = 30 * 60 * 1000; // 30 minutes
 const TARGET_LIVE_ROOMS_PER_REGION = 5;
 const ROOM_INTERVAL_MINUTES = 6; // New room every 6 minutes
 
+// Map states to their primary language for AI-hosted rooms
+const regionLanguages: Record<string, string> = {
+  'Delhi': 'Hindi', 'Uttar Pradesh': 'Hindi', 'Bihar': 'Hindi',
+  'Madhya Pradesh': 'Hindi', 'Rajasthan': 'Hindi', 'Haryana': 'Hindi',
+  'Tamil Nadu': 'Tamil', 'Karnataka': 'Kannada', 'Kerala': 'Malayalam',
+  'Andhra Pradesh': 'Telugu', 'Telangana': 'Telugu',
+  'West Bengal': 'Bengali', 'Maharashtra': 'Marathi', 'Gujarat': 'Gujarati',
+  'Punjab': 'Punjabi', 'Odisha': 'Odia', 'Assam': 'Assamese',
+};
+
+function getLanguageForState(state: string): string {
+  return regionLanguages[state] || 'English';
+}
+
 export async function startRoom(roomId: string): Promise<void> {
   const now = new Date();
   
@@ -210,11 +224,15 @@ async function createStaggeredRooms(
   scheduledNeeded: number
 ): Promise<void> {
   const categories = await prisma.category.findMany();
+  const region = await prisma.region.findUnique({ where: { id: regionId } });
   
-  if (categories.length === 0) {
-    console.log('No categories found, skipping room creation');
+  if (categories.length === 0 || !region) {
+    console.log('No categories or region found, skipping room creation');
     return;
   }
+
+  // Determine language for AI-hosted rooms based on region
+  const language = getLanguageForState(region.state);
 
   const now = new Date();
   let roomIndex = 0;
@@ -247,6 +265,7 @@ async function createStaggeredRooms(
               type: 'DEBATE',
               sideALabel: topic.sideALabel,
               sideBLabel: topic.sideBLabel,
+              language, // Regional language for AI-hosted rooms
               scheduledAt: startedAt,
               startedAt: startedAt,
               endsAt: endsAt,
@@ -255,7 +274,7 @@ async function createStaggeredRooms(
             },
           });
 
-          console.log(`Created LIVE room: ${topic.title} (started ${minutesAgo}m ago, ends at ${endsAt.toISOString()})`);
+          console.log(`Created LIVE room (${language}): ${topic.title} (started ${minutesAgo}m ago)`);
         }
       }
     } catch (error) {
@@ -289,13 +308,14 @@ async function createStaggeredRooms(
             type: 'DEBATE',
             sideALabel: topic.sideALabel,
             sideBLabel: topic.sideBLabel,
+            language, // Regional language for AI-hosted rooms
             scheduledAt,
             status: 'SCHEDULED',
             isAiHosted: true,
           },
         });
 
-        console.log(`Created SCHEDULED room: ${topic.title} (in ${minutesFromNow}m at ${scheduledAt.toISOString()})`);
+        console.log(`Created SCHEDULED room (${language}): ${topic.title} (in ${minutesFromNow}m)`);
       }
     } catch (error) {
       console.error('Error creating scheduled room:', error);

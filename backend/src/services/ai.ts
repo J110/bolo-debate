@@ -259,6 +259,11 @@ export async function batchGenerateTopics(topicsPerCategory: number = 10): Promi
   return totalGenerated;
 }
 
+// Groq model configuration
+// Using llama3-8b-8192 for better rate limits: RPM 30, TPM 30K
+// Alternative: mixtral-8x7b-32768 for better multilingual support
+const GROQ_MODEL = 'llama3-8b-8192';
+
 // Generate topics using available AI provider (Groq > Ollama > OpenAI)
 async function generateTopicsWithAI(
   region: { name: string; state: string },
@@ -269,7 +274,7 @@ async function generateTopicsWithAI(
   // Try Groq first (free and fast)
   if (hasGroq && groq) {
     try {
-      return await callLLM(groq, 'llama-3.1-70b-versatile', region, category, count);
+      return await callLLM(groq, GROQ_MODEL, region, category, count);
     } catch (error) {
       console.log('Groq failed, trying fallback:', error);
     }
@@ -481,7 +486,7 @@ Respond in JSON format:
     // Try Groq first (free)
     if (hasGroq && groq) {
       const response = await groq.chat.completions.create({
-        model: 'llama-3.1-70b-versatile',
+        model: GROQ_MODEL,
         messages,
         response_format: { type: 'json_object' },
         temperature: 0.7,
@@ -551,7 +556,7 @@ Respond in JSON format: { "subtopics": ["subtopic1", "subtopic2", ...] }`;
     // Try Groq first (free)
     if (hasGroq && groq) {
       const response = await groq.chat.completions.create({
-        model: 'llama-3.1-70b-versatile',
+        model: GROQ_MODEL,
         messages,
         response_format: { type: 'json_object' },
         temperature: 0.8,

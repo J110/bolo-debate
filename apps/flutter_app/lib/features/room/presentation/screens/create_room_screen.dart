@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:bolo_debate/core/services/api_service.dart';
 import 'package:bolo_debate/core/theme/app_theme.dart';
 import 'package:bolo_debate/features/home/presentation/providers/data_providers.dart';
+import 'package:bolo_debate/shared/models/room_model.dart';
 
 class CreateRoomScreen extends ConsumerStatefulWidget {
   const CreateRoomScreen({super.key});
@@ -23,6 +24,7 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
   String _roomType = 'DEBATE';
   String? _selectedRegionId;
   String? _selectedCategoryId;
+  String _selectedLanguage = 'English'; // Default language
   DateTime? _scheduledDateTime;
   bool _isLoading = false;
 
@@ -245,6 +247,26 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
                 loading: () => const LinearProgressIndicator(),
                 error: (_, __) => const Text('Failed to load categories'),
               ),
+              const SizedBox(height: 16),
+
+              // Language dropdown
+              DropdownButtonFormField<String>(
+                value: _selectedLanguage,
+                decoration: const InputDecoration(
+                  labelText: 'Discussion Language',
+                  prefixIcon: Icon(Icons.language_outlined),
+                  helperText: 'Choose the primary language for this discussion',
+                ),
+                items: supportedLanguages.map((language) => DropdownMenuItem(
+                      value: language,
+                      child: Text(language),
+                    )).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _selectedLanguage = value);
+                  }
+                },
+              ),
               const SizedBox(height: 24),
 
               // Schedule date/time
@@ -398,6 +420,7 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
         type: _roomType,
         sideALabel: _roomType == 'DEBATE' ? _sideAController.text.trim() : null,
         sideBLabel: _roomType == 'DEBATE' ? _sideBController.text.trim() : null,
+        language: _selectedLanguage,
         scheduledAt: _scheduledDateTime!,
       );
 
