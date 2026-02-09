@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bolo_debate/core/theme/app_theme.dart';
+import 'package:bolo_debate/core/services/api_service.dart';
 import 'package:bolo_debate/features/home/presentation/providers/data_providers.dart';
 import 'package:bolo_debate/shared/widgets/room_card.dart';
 import 'package:bolo_debate/shared/widgets/category_chips.dart';
@@ -84,6 +85,60 @@ class HomeScreen extends ConsumerWidget {
         },
         child: CustomScrollView(
           slivers: [
+            // Server waking up indicator
+            Consumer(
+              builder: (context, ref, child) {
+                final isWakingUp = ref.watch(serverWakingUpProvider);
+                if (!isWakingUp) return const SliverToBoxAdapter(child: SizedBox.shrink());
+                
+                return SliverToBoxAdapter(
+                  child: Container(
+                    margin: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.amber[700],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Server is waking up...',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.amber[800],
+                                ),
+                              ),
+                              Text(
+                                'Free tier servers sleep after inactivity. Please wait ~30 seconds.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.amber[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+            
             // Categories
             SliverToBoxAdapter(
               child: Padding(
@@ -161,10 +216,16 @@ class HomeScreen extends ConsumerWidget {
                 );
               },
               loading: () => const SliverToBoxAdapter(
-                child: Center(child: CircularProgressIndicator()),
+                child: SizedBox(
+                  height: 100,
+                  child: Center(child: CircularProgressIndicator()),
+                ),
               ),
               error: (e, _) => SliverToBoxAdapter(
-                child: Center(child: Text('Error: $e')),
+                child: _ServerErrorWidget(
+                  error: e.toString(),
+                  onRetry: () => ref.invalidate(liveRoomsProvider(filterParams)),
+                ),
               ),
             ),
 
@@ -225,10 +286,16 @@ class HomeScreen extends ConsumerWidget {
                 );
               },
               loading: () => const SliverToBoxAdapter(
-                child: Center(child: CircularProgressIndicator()),
+                child: SizedBox(
+                  height: 100,
+                  child: Center(child: CircularProgressIndicator()),
+                ),
               ),
               error: (e, _) => SliverToBoxAdapter(
-                child: Center(child: Text('Error: $e')),
+                child: _ServerErrorWidget(
+                  error: e.toString(),
+                  onRetry: () => ref.invalidate(scheduledRoomsProvider(filterParams)),
+                ),
               ),
             ),
 
@@ -313,6 +380,81 @@ class _EmptyState extends StatelessWidget {
             subtitle,
             style: Theme.of(context).textTheme.bodySmall,
             textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ServerErrorWidget extends StatelessWidget {
+  final String error;
+  final VoidCallback onRetry;
+
+  const _ServerErrorWidget({
+    required this.error,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Check if it's a timeout/connection error
+    final isServerSleeping = error.contains('timeout') || 
+        error.contains('connection') ||
+        error.contains('waking up') ||
+        error.contains('Server is starting');
+    
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isServerSleeping 
+            ? Colors.amber.withOpacity(0.1)
+            : Colors.red.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isServerSleeping
+              ? Colors.amber.withOpacity(0.3)
+              : Colors.red.withOpacity(0.3),
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            isServerSleeping ? Icons.cloud_outlined : Icons.error_outline,
+            size: 40,
+            color: isServerSleeping ? Colors.amber[700] : Colors.red[400],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            isServerSleeping 
+                ? 'Server is waking up...'
+                : 'Something went wrong',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 16,
+              color: isServerSleeping ? Colors.amber[800] : Colors.red[700],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            isServerSleeping
+                ? 'Free tier servers sleep after inactivity.\nThis usually takes 30-60 seconds.'
+                : error,
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh, size: 18),
+            label: const Text('Try Again'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isServerSleeping ? Colors.amber[700] : AppColors.primary,
+            ),
           ),
         ],
       ),

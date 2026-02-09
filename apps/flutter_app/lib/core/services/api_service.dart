@@ -3,17 +3,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bolo_debate/core/constants/app_constants.dart';
 import 'package:bolo_debate/core/services/storage_service.dart';
 
+// Track if server is waking up (for UI feedback)
+final serverWakingUpProvider = StateProvider<bool>((ref) => false);
+
 final dioProvider = Provider<Dio>((ref) {
   final dio = Dio(BaseOptions(
     baseUrl: AppConstants.baseUrl,
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
+    // Increased timeout for Render free tier cold starts (can take 30-60s)
+    connectTimeout: const Duration(seconds: 90),
+    receiveTimeout: const Duration(seconds: 90),
     headers: {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     },
   ));
 
+  // Add retry interceptor first (handles timeouts)
+  dio.interceptors.add(RetryInterceptor(ref, dio));
   dio.interceptors.add(AuthInterceptor(ref));
   dio.interceptors.add(LogInterceptor(
     requestBody: true,
@@ -22,6 +28,62 @@ final dioProvider = Provider<Dio>((ref) {
 
   return dio;
 });
+
+// Retry interceptor for handling server cold starts
+class RetryInterceptor extends Interceptor {
+  final Ref ref;
+  final Dio dio;
+  final int maxRetries;
+  
+  RetryInterceptor(this.ref, this.dio, {this.maxRetries = 2});
+  
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) async {
+    // Check if this is a timeout or connection error (server sleeping)
+    final isRetryable = err.type == DioExceptionType.connectionTimeout ||
+        err.type == DioExceptionType.receiveTimeout ||
+        err.type == DioExceptionType.connectionError;
+    
+    // Get retry count from request
+    final retryCount = err.requestOptions.extra['retryCount'] ?? 0;
+    
+    if (isRetryable && retryCount < maxRetries) {
+      // Mark server as waking up for UI feedback
+      ref.read(serverWakingUpProvider.notifier).state = true;
+      
+      // Wait a bit before retrying (cast retryCount to int)
+      await Future.delayed(Duration(seconds: 2 + (retryCount as int) * 2));
+      
+      try {
+        // Clone the request with incremented retry count
+        final options = err.requestOptions;
+        options.extra['retryCount'] = retryCount + 1;
+        
+        final response = await dio.fetch(options);
+        
+        // Server is awake now
+        ref.read(serverWakingUpProvider.notifier).state = false;
+        
+        return handler.resolve(response);
+      } catch (e) {
+        // If retry also fails, continue with error handling
+        ref.read(serverWakingUpProvider.notifier).state = false;
+      }
+    }
+    
+    // Transform error message for better UX
+    if (isRetryable) {
+      err = DioException(
+        requestOptions: err.requestOptions,
+        error: 'Server is starting up. Please wait a moment and try again.',
+        type: err.type,
+        response: err.response,
+      );
+    }
+    
+    handler.next(err);
+  }
+}
 
 class AuthInterceptor extends Interceptor {
   final Ref ref;
