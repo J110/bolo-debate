@@ -561,7 +561,7 @@ export async function roomRoutes(app: FastifyInstance) {
     if (room.extensionsUsed >= 3) {
       return reply.status(400).send({
         success: false,
-        error: 'Maximum extensions reached',
+        error: 'Maximum 3 extensions allowed (15 minutes total)',
       });
     }
 

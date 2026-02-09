@@ -168,81 +168,46 @@ async function sendBotSuggestions(): Promise<void> {
 }
 
 // Clean up stale rooms
+// Room policy: 30 min base + max 3 extensions of 5 min = 45 min absolute max
 async function cleanupStaleRooms(): Promise<void> {
-  const aiMaxLiveTime = 45 * 60 * 1000; // 45 minutes max for AI-hosted rooms
-  const userMaxLiveTime = 2 * 60 * 60 * 1000; // 2 hours max for user-created rooms
-  const absoluteMaxTime = 3 * 60 * 60 * 1000; // 3 hours absolute max for any room
+  const maxRoomTime = 45 * 60 * 1000; // 45 minutes absolute max (30 base + 15 extensions)
+  const cutoffTime = new Date(Date.now() - maxRoomTime);
   
-  const aiCutoffTime = new Date(Date.now() - aiMaxLiveTime);
-  const userCutoffTime = new Date(Date.now() - userMaxLiveTime);
-  const absoluteCutoffTime = new Date(Date.now() - absoluteMaxTime);
-  
-  // Find stale AI-hosted rooms (45 min)
-  const staleAiRooms = await prisma.room.findMany({
+  // Find any room that has been live longer than 45 minutes
+  // This is a safety net - rooms should normally end via endsAt check
+  const staleRooms = await prisma.room.findMany({
     where: {
       status: 'LIVE',
-      isAiHosted: true,
-      startedAt: { lte: aiCutoffTime },
+      startedAt: { lte: cutoffTime },
     },
-    select: { id: true, title: true },
+    select: { id: true, title: true, startedAt: true },
   });
   
-  // Find user rooms without active participants (2 hours)
-  const staleUserRooms = await prisma.room.findMany({
-    where: {
-      status: 'LIVE',
-      isAiHosted: false,
-      startedAt: { lte: userCutoffTime },
-      participants: {
-        none: {
-          leftAt: null,
-        },
-      },
-    },
-    select: { id: true, title: true },
-  });
-  
-  // Find ANY room that's been live for over 3 hours (absolute safety net)
-  const veryStaleRooms = await prisma.room.findMany({
-    where: {
-      status: 'LIVE',
-      startedAt: { lte: absoluteCutoffTime },
-    },
-    select: { id: true, title: true },
-  });
-  
-  // Combine all stale rooms (using Set to avoid duplicates)
-  const allStaleRoomIds = new Set([
-    ...staleAiRooms.map(r => r.id),
-    ...staleUserRooms.map(r => r.id),
-    ...veryStaleRooms.map(r => r.id),
-  ]);
-  
-  if (allStaleRoomIds.size > 0) {
-    console.log(`Cleaning up ${allStaleRoomIds.size} stale rooms (${staleAiRooms.length} AI, ${staleUserRooms.length} empty user, ${veryStaleRooms.length} very old)`);
+  if (staleRooms.length > 0) {
+    console.log(`Cleaning up ${staleRooms.length} stale rooms (exceeded 45 min max)`);
     
-    for (const roomId of allStaleRoomIds) {
+    for (const room of staleRooms) {
       try {
         await prisma.room.update({
-          where: { id: roomId },
+          where: { id: room.id },
           data: { status: 'ENDED' },
         });
         
         await prisma.roomParticipant.updateMany({
-          where: { roomId: roomId, leftAt: null },
+          where: { roomId: room.id, leftAt: null },
           data: { leftAt: new Date() },
         });
         
-        broadcastToRoom(roomId, {
+        broadcastToRoom(room.id, {
           type: 'room:ended',
-          roomId: roomId,
+          roomId: room.id,
           payload: {},
           timestamp: new Date().toISOString(),
         });
         
-        console.log(`Ended stale room: ${roomId}`);
+        console.log(`Ended stale room: ${room.id} (${room.title})`);
       } catch (error) {
-        console.error(`Error ending stale room ${roomId}:`, error);
+        console.error(`Error ending stale room ${room.id}:`, error);
       }
     }
   }
