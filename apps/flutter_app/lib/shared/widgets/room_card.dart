@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:bolo_debate/core/theme/app_theme.dart';
 import 'package:bolo_debate/shared/models/room_model.dart';
@@ -6,12 +7,30 @@ import 'package:bolo_debate/shared/models/room_model.dart';
 class RoomCard extends StatelessWidget {
   final Room room;
   final VoidCallback? onTap;
+  final bool showShareButton;
 
   const RoomCard({
     super.key,
     required this.room,
     this.onTap,
+    this.showShareButton = true,
   });
+
+  void _shareRoom() {
+    final shareUrl = 'https://bolo-debate.vercel.app/room/${room.id}';
+    final statusEmoji = room.isLive ? '🔴 LIVE' : '📅 Upcoming';
+    final shareText = '''🎙️ Join the debate on Bolo!
+
+$statusEmoji
+📢 "${room.title}"
+
+${room.sideALabel ?? ''} vs ${room.sideBLabel ?? ''}
+
+Join now and voice your opinion! 👇
+$shareUrl''';
+
+    Share.share(shareText, subject: 'Join my debate on Bolo!');
+  }
 
   String _getTimeText() {
     if (room.isLive) {
@@ -164,6 +183,24 @@ class RoomCard extends StatelessWidget {
                       color: room.isLive ? AppColors.error : null,
                     ),
                   ),
+                  if (showShareButton) ...[
+                    const SizedBox(width: 12),
+                    GestureDetector(
+                      onTap: _shareRoom,
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.share,
+                          size: 16,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ],

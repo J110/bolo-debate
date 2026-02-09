@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:bolo_debate/core/constants/app_constants.dart';
 import 'package:bolo_debate/core/theme/app_theme.dart';
 import 'package:bolo_debate/core/services/livekit_service.dart';
@@ -131,6 +132,24 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
     _liveKitService.disconnect();
     _liveKitService.dispose();
     super.dispose();
+  }
+
+  void _shareRoom() {
+    final roomState = ref.read(liveRoomProvider(widget.roomId));
+    final room = roomState.room;
+    if (room == null) return;
+
+    final shareUrl = 'https://bolo-debate.vercel.app/room/${widget.roomId}';
+    final shareText = '''🎙️ Join the debate on Bolo!
+
+📢 "${room.title}"
+
+${room.sideALabel} vs ${room.sideBLabel}
+
+Join now and voice your opinion! 👇
+$shareUrl''';
+
+    Share.share(shareText, subject: 'Join my debate on Bolo!');
   }
 
   @override
@@ -903,8 +922,8 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
                 leading: const Icon(Icons.share, color: Colors.white),
                 title: const Text('Share Room', style: TextStyle(color: Colors.white)),
                 onTap: () {
-                  // TODO: Share
                   Navigator.pop(context);
+                  _shareRoom();
                 },
               ),
               ListTile(

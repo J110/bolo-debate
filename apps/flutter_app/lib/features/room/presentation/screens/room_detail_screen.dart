@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:bolo_debate/core/constants/app_constants.dart';
 import 'package:bolo_debate/core/theme/app_theme.dart';
@@ -18,6 +19,24 @@ class RoomDetailScreen extends ConsumerStatefulWidget {
 
 class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
   String? _selectedSide;
+
+  void _shareRoom(Room room) {
+    final shareUrl = 'https://bolo-debate.vercel.app/room/${room.id}';
+    final statusEmoji = room.isLive ? '🔴 LIVE' : '📅 Scheduled';
+    final shareText = '''🎙️ Join the debate on Bolo!
+
+$statusEmoji
+📢 "${room.title}"
+
+${room.sideALabel} vs ${room.sideBLabel}
+
+${room.description ?? ''}
+
+Join now and voice your opinion! 👇
+$shareUrl''';
+
+    Share.share(shareText, subject: 'Join my debate on Bolo!');
+  }
 
   void _onSideSelected(BuildContext context, Room room, String side) {
     setState(() => _selectedSide = side);
@@ -70,7 +89,10 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
           IconButton(
             icon: const Icon(Icons.share),
             onPressed: () {
-              // TODO: Share room
+              final room = roomAsync.valueOrNull;
+              if (room != null) {
+                _shareRoom(room);
+              }
             },
           ),
         ],
