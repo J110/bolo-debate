@@ -1,8 +1,101 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:timeago/timeago.dart' as timeago;
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bolo_debate/core/theme/app_theme.dart';
 import 'package:bolo_debate/shared/models/room_model.dart';
+
+/// Image keywords for each category to ensure diverse, relevant images
+const Map<String, List<String>> _categoryImageKeywords = {
+  'Politics': [
+    'parliament,government',
+    'democracy,vote',
+    'capitol,politics',
+    'law,justice',
+    'speech,podium',
+    'flags,nation',
+    'protest,rally',
+    'election,ballot',
+  ],
+  'Technology': [
+    'technology,future',
+    'coding,programming',
+    'artificial-intelligence,robot',
+    'smartphone,digital',
+    'circuit,electronics',
+    'startup,innovation',
+    'data,network',
+    'cybersecurity,hacker',
+  ],
+  'Business': [
+    'business,finance',
+    'stock-market,trading',
+    'office,corporate',
+    'money,investment',
+    'entrepreneur,startup',
+    'economy,growth',
+    'meeting,conference',
+    'chart,analytics',
+  ],
+  'Sports': [
+    'sports,athlete',
+    'cricket,stadium',
+    'football,soccer',
+    'basketball,court',
+    'olympics,medal',
+    'fitness,training',
+    'team,victory',
+    'competition,race',
+  ],
+  'Entertainment': [
+    'cinema,film',
+    'music,concert',
+    'bollywood,movie',
+    'celebrity,star',
+    'theater,drama',
+    'streaming,media',
+    'dance,performance',
+    'festival,celebration',
+  ],
+};
+
+/// Generate a consistent image URL based on room properties
+String _getImageUrl(Room room) {
+  final category = room.category.name;
+  final keywords = _categoryImageKeywords[category] ?? _categoryImageKeywords['Technology']!;
+  
+  // Use room ID hash to consistently pick a keyword set for diversity
+  final hash = room.id.hashCode.abs();
+  final keywordIndex = hash % keywords.length;
+  final keyword = keywords[keywordIndex];
+  
+  // Use different image index based on title hash for more variety
+  final titleHash = room.title.hashCode.abs();
+  final imageIndex = titleHash % 30; // Picsum has many images
+  
+  // Using Lorem Picsum with seed for consistent images
+  // Seed is based on keyword + room hash for consistency but diversity
+  final seed = '${keyword.split(',').first}-$imageIndex';
+  
+  return 'https://picsum.photos/seed/$seed/400/200';
+}
+
+/// Get category-specific gradient colors
+List<Color> _getCategoryGradient(String categoryName) {
+  switch (categoryName) {
+    case 'Politics':
+      return [const Color(0xFFE53935), const Color(0xFFFF7043)];
+    case 'Technology':
+      return [const Color(0xFF1E88E5), const Color(0xFF42A5F5)];
+    case 'Business':
+      return [const Color(0xFFFFA726), const Color(0xFFFFCC02)];
+    case 'Sports':
+      return [const Color(0xFF43A047), const Color(0xFF66BB6A)];
+    case 'Entertainment':
+      return [const Color(0xFF8E24AA), const Color(0xFFBA68C8)];
+    default:
+      return [AppColors.primary, AppColors.secondary];
+  }
+}
 
 class RoomCard extends StatelessWidget {
   final Room room;
@@ -39,9 +132,9 @@ $shareUrl''';
         if (duration.inMinutes < 1) {
           return 'Just started';
         } else if (duration.inMinutes < 60) {
-          return 'Live for ${duration.inMinutes}m';
+          return '${duration.inMinutes}m ago';
         } else {
-          return 'Live for ${duration.inHours}h ${duration.inMinutes % 60}m';
+          return '${duration.inHours}h ${duration.inMinutes % 60}m';
         }
       }
       return 'Live now';
@@ -51,163 +144,227 @@ $shareUrl''';
       if (diff.isNegative) {
         return 'Starting soon';
       } else if (diff.inMinutes < 60) {
-        return 'In ${diff.inMinutes}m';
+        return '${diff.inMinutes}m left';
       } else if (diff.inHours < 24) {
-        return 'In ${diff.inHours}h ${diff.inMinutes % 60}m';
+        return '${diff.inHours}h left';
       } else {
-        return timeago.format(room.scheduledAt, allowFromNow: true);
+        return '${diff.inDays}d left';
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final categoryColor = Color(int.parse(room.category.color.replaceFirst('#', '0xFF')));
+    final gradientColors = _getCategoryGradient(room.category.name);
+    
     return Card(
+      elevation: 4,
+      shadowColor: Colors.black26,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header row
-              Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Image section with gradient overlay
+            SizedBox(
+              height: 120,
+              width: double.infinity,
+              child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  // Category badge
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Color(int.parse(room.category.color.replaceFirst('#', '0xFF'))).withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8),
+                  // Background image
+                  CachedNetworkImage(
+                    imageUrl: _getImageUrl(room),
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: gradientColors,
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: const Center(
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                    errorWidget: (context, url, error) => Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: gradientColors,
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: Icon(
+                        _getCategoryIcon(room.category.name),
+                        size: 48,
+                        color: Colors.white.withOpacity(0.5),
+                      ),
+                    ),
+                  ),
+                  // Gradient overlay for better text readability
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.3),
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
+                  ),
+                  // Status badge (top right)
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: _StatusBadge(status: room.status),
+                  ),
+                  // Language badge (top left, if not English)
+                  if (room.language != 'English')
+                    Positioned(
+                      top: 10,
+                      left: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          room.language,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            // Content section
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Category badge
+                    Row(
                       children: [
-                        Text(room.category.icon, style: const TextStyle(fontSize: 12)),
-                        const SizedBox(width: 4),
+                        Text(
+                          room.category.icon,
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                        const SizedBox(width: 6),
                         Text(
                           room.category.name,
                           style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: Color(int.parse(room.category.color.replaceFirst('#', '0xFF'))),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: categoryColor,
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Language badge (if not English)
-                  if (room.language != 'English')
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: Colors.teal.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(6),
+                    const SizedBox(height: 8),
+                    // Title
+                    Expanded(
+                      child: Text(
+                        room.title,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1A1A2E),
+                          height: 1.3,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.language, size: 12, color: Colors.teal),
-                          const SizedBox(width: 3),
-                          Text(
-                            room.language,
+                    ),
+                    const SizedBox(height: 10),
+                    // Footer with stats and join button
+                    Row(
+                      children: [
+                        // Participants
+                        Icon(Icons.people_outline, size: 14, color: Colors.grey[500]),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${room.participantCount}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Time
+                        Icon(Icons.access_time, size: 14, color: Colors.grey[500]),
+                        const SizedBox(width: 4),
+                        Text(
+                          _getTimeText(),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: room.isLive ? AppColors.error : Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const Spacer(),
+                        // Join button
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            room.isLive ? 'Join' : 'View',
                             style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.teal,
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                  const Spacer(),
-                  // Status badge
-                  _StatusBadge(status: room.status),
-                ],
-              ),
-              const SizedBox(height: 12),
-              // Title
-              Text(
-                room.title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const Spacer(),
-              // Sides for debates
-              if (room.isDebate && room.sideALabel != null && room.sideBLabel != null) ...[
-                Row(
-                  children: [
-                    Expanded(
-                      child: _SideBadge(
-                        label: room.sideALabel!,
-                        count: room.sideACount,
-                        color: AppColors.sideA,
-                      ),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8),
-                      child: Text('vs', style: TextStyle(fontWeight: FontWeight.bold)),
-                    ),
-                    Expanded(
-                      child: _SideBadge(
-                        label: room.sideBLabel!,
-                        count: room.sideBCount,
-                        color: AppColors.sideB,
-                        alignRight: true,
-                      ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-              ],
-              // Footer
-              Row(
-                children: [
-                  Icon(Icons.people_outline, size: 16, color: Colors.grey[600]),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${room.participantCount} joined',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const Spacer(),
-                  Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
-                  const SizedBox(width: 4),
-                  Text(
-                    _getTimeText(),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: room.isLive ? AppColors.error : null,
-                    ),
-                  ),
-                  if (showShareButton) ...[
-                    const SizedBox(width: 12),
-                    GestureDetector(
-                      onTap: _shareRoom,
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.share,
-                          size: 16,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
+  }
+}
+
+IconData _getCategoryIcon(String categoryName) {
+  switch (categoryName) {
+    case 'Politics':
+      return Icons.account_balance;
+    case 'Technology':
+      return Icons.computer;
+    case 'Business':
+      return Icons.trending_up;
+    case 'Sports':
+      return Icons.sports_soccer;
+    case 'Entertainment':
+      return Icons.movie;
+    default:
+      return Icons.category;
   }
 }
 
@@ -218,29 +375,40 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    late Color color;
+    late Color bgColor;
+    late Color textColor;
     late String label;
 
     switch (status) {
       case RoomStatus.live:
-        color = AppColors.error;
+        bgColor = AppColors.error;
+        textColor = Colors.white;
         label = 'LIVE';
         break;
       case RoomStatus.scheduled:
-        color = AppColors.warning;
-        label = 'SCHEDULED';
+        bgColor = Colors.white;
+        textColor = AppColors.warning;
+        label = 'UPCOMING';
         break;
       case RoomStatus.ended:
-        color = Colors.grey;
+        bgColor = Colors.grey[800]!;
+        textColor = Colors.white;
         label = 'ENDED';
         break;
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(4),
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -249,9 +417,9 @@ class _StatusBadge extends StatelessWidget {
             Container(
               width: 6,
               height: 6,
-              margin: const EdgeInsets.only(right: 4),
-              decoration: BoxDecoration(
-                color: color,
+              margin: const EdgeInsets.only(right: 5),
+              decoration: const BoxDecoration(
+                color: Colors.white,
                 shape: BoxShape.circle,
               ),
             ),
@@ -260,58 +428,7 @@ class _StatusBadge extends StatelessWidget {
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SideBadge extends StatelessWidget {
-  final String label;
-  final int count;
-  final Color color;
-  final bool alignRight;
-
-  const _SideBadge({
-    required this.label,
-    required this.count,
-    required this.color,
-    this.alignRight = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Column(
-        crossAxisAlignment: alignRight ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            textAlign: alignRight ? TextAlign.end : TextAlign.start,
-          ),
-          const SizedBox(height: 2),
-          Text(
-            '$count',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              color: color.withOpacity(0.7),
+              color: textColor,
             ),
           ),
         ],

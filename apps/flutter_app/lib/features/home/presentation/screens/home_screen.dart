@@ -194,7 +194,7 @@ class HomeScreen extends ConsumerWidget {
                 }
                 return SliverToBoxAdapter(
                   child: SizedBox(
-                    height: 200,
+                    height: 280,
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -203,7 +203,7 @@ class HomeScreen extends ConsumerWidget {
                         return Padding(
                           padding: EdgeInsets.only(right: index < rooms.length - 1 ? 12 : 0),
                           child: SizedBox(
-                            width: 300,
+                            width: 240,
                             child: RoomCard(
                               room: rooms[index],
                               onTap: () => context.push('/room/${rooms[index].id}/detail'),
