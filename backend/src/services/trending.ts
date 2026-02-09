@@ -17,7 +17,14 @@ import { prisma } from '../config/database.js';
 import { config } from '../config/index.js';
 import Parser from 'rss-parser';
 
-const rssParser = new Parser();
+// Configure RSS parser with proper headers to avoid 403 errors
+const rssParser = new Parser({
+  headers: {
+    'User-Agent': 'Mozilla/5.0 (compatible; BoloDebate/1.0; +https://bolo-debate.vercel.app)',
+    'Accept': 'application/rss+xml, application/xml, text/xml, */*',
+  },
+  timeout: 10000, // 10 second timeout
+});
 
 // Region-specific news sources
 interface NewsSource {
@@ -159,8 +166,12 @@ async function fetchRSSFeed(source: NewsSource): Promise<TrendingItemData[]> {
       regionName: source.region,
       categoryName: source.category || classifyCategory(item.title || '', item.contentSnippet),
     }));
-  } catch (error) {
-    console.error(`Error fetching RSS from ${source.name}:`, error);
+  } catch (error: unknown) {
+    // Only log non-403 errors (403 is common for sites blocking bots)
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (!errorMessage.includes('403') && !errorMessage.includes('Status code')) {
+      console.error(`Error fetching RSS from ${source.name}:`, errorMessage);
+    }
     return [];
   }
 }
