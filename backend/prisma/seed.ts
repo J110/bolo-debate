@@ -2,8 +2,9 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// Simplified regions - 6 major metros with high engagement potential
+// Simplified regions - 6 major metros + National for pan-India discussions
 const regions = [
+  { name: 'National', state: 'India', latitude: 20.5937, longitude: 78.9629 }, // Pan-India discussions
   { name: 'Delhi NCR', state: 'Delhi', latitude: 28.6139, longitude: 77.2090 },
   { name: 'Mumbai', state: 'Maharashtra', latitude: 19.0760, longitude: 72.8777 },
   { name: 'Bangalore', state: 'Karnataka', latitude: 12.9716, longitude: 77.5946 },

@@ -74,7 +74,7 @@ signals.forEach((signal) => {
 });
 
 // Simplified regions and categories to keep
-const KEEP_REGIONS = ['Delhi NCR', 'Delhi', 'Mumbai', 'Bangalore', 'Hyderabad', 'Chennai', 'Kolkata'];
+const KEEP_REGIONS = ['National', 'Delhi NCR', 'Delhi', 'Mumbai', 'Bangalore', 'Hyderabad', 'Chennai', 'Kolkata'];
 const KEEP_CATEGORIES = ['Politics', 'Technology', 'Business', 'Sports', 'Entertainment'];
 
 // Cleanup old rooms on startup and populate topic cache

@@ -8,18 +8,10 @@ const MIN_LIVE_ROOMS_PER_REGION = 1; // At least 1 live room per region
 const MIN_SCHEDULED_ROOMS_PER_REGION = 1; // At least 1 upcoming room per region
 const ROOM_INTERVAL_MINUTES = 6; // New room every 6 minutes
 
-// Map states to their primary language for AI-hosted rooms
-const regionLanguages: Record<string, string> = {
-  'Delhi': 'Hindi', 'Uttar Pradesh': 'Hindi', 'Bihar': 'Hindi',
-  'Madhya Pradesh': 'Hindi', 'Rajasthan': 'Hindi', 'Haryana': 'Hindi',
-  'Tamil Nadu': 'Tamil', 'Karnataka': 'Kannada', 'Kerala': 'Malayalam',
-  'Andhra Pradesh': 'Telugu', 'Telangana': 'Telugu',
-  'West Bengal': 'Bengali', 'Maharashtra': 'Marathi', 'Gujarat': 'Gujarati',
-  'Punjab': 'Punjabi', 'Odisha': 'Odia', 'Assam': 'Assamese',
-};
-
-function getLanguageForState(state: string): string {
-  return regionLanguages[state] || 'English';
+// Randomly select Hindi or English for room language
+// Topics will be localized but discussion language is Hindi or English
+function getRandomLanguage(): string {
+  return Math.random() < 0.5 ? 'Hindi' : 'English';
 }
 
 export async function startRoom(roomId: string): Promise<void> {
@@ -239,7 +231,7 @@ async function createStaggeredRooms(
   }
 
   // Determine language for AI-hosted rooms based on region
-  const language = getLanguageForState(region.state);
+  const language = getRandomLanguage();
 
   const now = new Date();
   let roomIndex = 0;

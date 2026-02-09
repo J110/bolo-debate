@@ -2,11 +2,11 @@ import { FastifyInstance } from 'fastify';
 import { prisma } from '../config/database.js';
 
 // Simplified regions and categories to keep
-const KEEP_REGIONS = ['Delhi NCR', 'Delhi', 'Mumbai', 'Bangalore', 'Hyderabad', 'Chennai', 'Kolkata'];
+const KEEP_REGIONS = ['National', 'Delhi NCR', 'Delhi', 'Mumbai', 'Bangalore', 'Hyderabad', 'Chennai', 'Kolkata'];
 const KEEP_CATEGORIES = ['Politics', 'Technology', 'Business', 'Sports', 'Entertainment'];
 
 export async function regionRoutes(app: FastifyInstance) {
-  // Admin endpoint to cleanup extra regions/categories
+  // Admin endpoint to cleanup extra regions/categories and add National
   app.post('/cleanup', async (_request, reply) => {
     console.log('🧹 Running manual cleanup...');
     
@@ -47,9 +47,25 @@ export async function regionRoutes(app: FastifyInstance) {
       data: { name: 'Delhi NCR' },
     });
     
+    // Create "National" region if it doesn't exist (for pan-India discussions)
+    const nationalExists = await prisma.region.findFirst({ where: { name: 'National' } });
+    let nationalCreated = false;
+    if (!nationalExists) {
+      await prisma.region.create({
+        data: {
+          name: 'National',
+          state: 'India',
+          latitude: 20.5937,
+          longitude: 78.9629,
+        },
+      });
+      nationalCreated = true;
+      console.log('✅ Created National region for pan-India discussions');
+    }
+    
     // Get remaining counts
-    const remainingRegions = await prisma.region.findMany();
-    const remainingCategories = await prisma.category.findMany();
+    const remainingRegions = await prisma.region.findMany({ orderBy: { name: 'asc' } });
+    const remainingCategories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
     
     console.log(`✅ Cleanup complete: removed ${deletedRegions} regions, ${deletedCategories} categories`);
     
@@ -58,6 +74,7 @@ export async function regionRoutes(app: FastifyInstance) {
       data: {
         deletedRegions,
         deletedCategories,
+        nationalCreated,
         remainingRegions: remainingRegions.map(r => r.name),
         remainingCategories: remainingCategories.map(c => c.name),
       },

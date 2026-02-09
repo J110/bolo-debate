@@ -39,48 +39,8 @@ if (!hasGroq && !hasOpenAI && !hasOllama) {
   console.log('⚠️ No AI provider configured - using fallback topics');
 }
 
-// Language mapping for Indian regions/states
-const regionLanguages: Record<string, string> = {
-  // Hindi belt
-  'Delhi': 'Hindi',
-  'Uttar Pradesh': 'Hindi',
-  'Bihar': 'Hindi',
-  'Madhya Pradesh': 'Hindi',
-  'Rajasthan': 'Hindi',
-  'Haryana': 'Hindi',
-  'Jharkhand': 'Hindi',
-  'Uttarakhand': 'Hindi',
-  'Chhattisgarh': 'Hindi',
-  // South India
-  'Tamil Nadu': 'Tamil',
-  'Karnataka': 'Kannada',
-  'Kerala': 'Malayalam',
-  'Andhra Pradesh': 'Telugu',
-  'Telangana': 'Telugu',
-  // East India
-  'West Bengal': 'Bengali',
-  'Odisha': 'Odia',
-  'Assam': 'Assamese',
-  // West India
-  'Maharashtra': 'Marathi',
-  'Gujarat': 'Gujarati',
-  'Goa': 'Konkani',
-  // North India
-  'Punjab': 'Punjabi',
-  'Jammu and Kashmir': 'Kashmiri',
-  // Northeast
-  'Manipur': 'Manipuri',
-  'Meghalaya': 'Khasi',
-  'Mizoram': 'Mizo',
-  'Nagaland': 'English',
-  'Sikkim': 'Nepali',
-  'Tripura': 'Bengali',
-  'Arunachal Pradesh': 'English',
-};
-
-function getRegionLanguage(state: string): string {
-  return regionLanguages[state] || 'Hindi';
-}
+// Topics should be relevant to the region but text always in English
+// Room language will be randomly Hindi or English (handled in room service)
 
 interface GeneratedTopic {
   title: string;
@@ -309,32 +269,26 @@ async function callLLM(
   category: { name: string },
   count: number
 ): Promise<{ title: string; description: string; sideALabel: string; sideBLabel: string }[]> {
-  const language = getRegionLanguage(region.state);
-  
-  // Multilingual prompt - generate topics in regional language when applicable
-  const languageInstruction = language !== 'English' && language !== 'Hindi' 
-    ? `IMPORTANT: Generate the topic titles and side labels in ${language} language (using ${language} script). The description can be in English for clarity.`
-    : language === 'Hindi' 
-      ? `Generate topics in Hindi (Devanagari script) where culturally appropriate. Mix of Hindi and English is acceptable.`
-      : '';
+  // For National region, generate pan-India topics
+  const isNational = region.name === 'National';
+  const regionContext = isNational 
+    ? 'This is for pan-India discussions, covering topics relevant to all of India.'
+    : `Region: ${region.name}, ${region.state}. Topics should be relevant to local issues and culture.`;
   
   const prompt = `Generate ${count} engaging debate topics for an audio discussion platform in India.
 
-Region: ${region.name}, ${region.state}
+${regionContext}
 Category: ${category.name}
-Regional Language: ${language}
-
-${languageInstruction}
 
 Requirements:
-1. Topics should be relevant to the local region and current affairs
-2. Topics should be debatable with clear opposing viewpoints
-3. Topics should be respectful and not promote hate or discrimination
-4. Topics should be engaging and encourage healthy discussion
-5. Topics should resonate with local culture and issues
+1. Topics should be in ENGLISH only
+2. Topics should be relevant to ${isNational ? 'national issues affecting all Indians' : 'the local region and current affairs'}
+3. Topics should be debatable with clear opposing viewpoints
+4. Topics should be respectful and not promote hate or discrimination
+5. Topics should be engaging and encourage healthy discussion
 
 For each topic, provide:
-- title: A compelling question or statement (max 100 chars)
+- title: A compelling question or statement in English (max 100 chars)
 - description: Brief context about the topic (max 200 chars)
 - sideALabel: Label for one side (e.g., "Support", "In Favor", "Yes") (max 30 chars)
 - sideBLabel: Label for opposing side (e.g., "Oppose", "Against", "No") (max 30 chars)
@@ -346,7 +300,7 @@ Respond in JSON format: { "topics": [...] }`;
     messages: [
       {
         role: 'system',
-        content: `You are a helpful assistant that generates engaging debate topics for an Indian audio discussion platform. You are fluent in ${language} and can generate content in that language. Always respond with valid JSON.`,
+        content: 'You are a helpful assistant that generates engaging debate topics for an Indian audio discussion platform. Always respond with valid JSON. Generate topics in English only.',
       },
       {
         role: 'user',
@@ -380,32 +334,28 @@ async function callOllama(
   category: { name: string },
   count: number
 ): Promise<{ title: string; description: string; sideALabel: string; sideBLabel: string }[]> {
-  const language = getRegionLanguage(region.state);
+  // Use a good general model
+  const model = 'llama3.1:8b';
   
-  // Use a multilingual model - qwen2.5 or llama3.1 are good choices
-  const model = 'qwen2.5:7b'; // Good multilingual support including Indian languages
-  
-  const languageInstruction = language !== 'English' && language !== 'Hindi' 
-    ? `IMPORTANT: Generate the topic titles and side labels in ${language} language (using ${language} script).`
-    : language === 'Hindi' 
-      ? `Generate topics in Hindi (Devanagari script) where culturally appropriate.`
-      : '';
+  // For National region, generate pan-India topics
+  const isNational = region.name === 'National';
+  const regionContext = isNational 
+    ? 'Pan-India discussions covering topics relevant to all of India.'
+    : `Region: ${region.name}, ${region.state}. Topics should be relevant to local issues.`;
   
   const prompt = `Generate ${count} engaging debate topics for an audio discussion platform in India.
 
-Region: ${region.name}, ${region.state}
+${regionContext}
 Category: ${category.name}
-Regional Language: ${language}
-
-${languageInstruction}
 
 Requirements:
-1. Topics should be relevant to the local region
-2. Topics should be debatable with clear opposing viewpoints
-3. Topics should be respectful
+1. Topics must be in ENGLISH only
+2. Topics should be relevant to ${isNational ? 'national issues' : 'the local region'}
+3. Topics should be debatable with clear opposing viewpoints
+4. Topics should be respectful
 
 For each topic, provide:
-- title: A compelling question (max 100 chars)
+- title: A compelling question in English (max 100 chars)
 - description: Brief context (max 200 chars)
 - sideALabel: Label for one side (max 30 chars)
 - sideBLabel: Label for opposing side (max 30 chars)
@@ -417,7 +367,7 @@ Respond ONLY with valid JSON: { "topics": [...] }`;
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model,
-      prompt: `You are a multilingual assistant fluent in ${language}. Generate debate topics in JSON format.\n\n${prompt}`,
+      prompt: `You are an assistant that generates debate topics in English. Generate debate topics in JSON format.\n\n${prompt}`,
       stream: false,
       format: 'json',
     }),
