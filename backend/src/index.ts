@@ -73,6 +73,10 @@ signals.forEach((signal) => {
   });
 });
 
+// Simplified regions and categories to keep
+const KEEP_REGIONS = ['Delhi NCR', 'Delhi', 'Mumbai', 'Bangalore', 'Hyderabad', 'Chennai', 'Kolkata'];
+const KEEP_CATEGORIES = ['Politics', 'Technology', 'Business', 'Sports', 'Entertainment'];
+
 // Cleanup old rooms on startup and populate topic cache
 async function startupCleanup() {
   const { prisma } = await import('./config/database.js');
@@ -80,6 +84,42 @@ async function startupCleanup() {
   
   console.log('🧹 Running startup cleanup...');
   
+  // === SIMPLIFY REGIONS AND CATEGORIES ===
+  // Get all regions and categories
+  const allRegions = await prisma.region.findMany();
+  const allCategories = await prisma.category.findMany();
+  
+  // Find items to delete
+  const regionsToDelete = allRegions.filter(r => !KEEP_REGIONS.includes(r.name));
+  const categoriesToDelete = allCategories.filter(c => !KEEP_CATEGORIES.includes(c.name));
+  
+  if (regionsToDelete.length > 0) {
+    const regionIds = regionsToDelete.map(r => r.id);
+    console.log(`  🗑️ Removing ${regionsToDelete.length} extra regions: ${regionsToDelete.map(r => r.name).join(', ')}`);
+    
+    // Delete associated data
+    await prisma.topicQueue.deleteMany({ where: { regionId: { in: regionIds } } });
+    await prisma.room.deleteMany({ where: { regionId: { in: regionIds } } });
+    await prisma.region.deleteMany({ where: { id: { in: regionIds } } });
+  }
+  
+  if (categoriesToDelete.length > 0) {
+    const categoryIds = categoriesToDelete.map(c => c.id);
+    console.log(`  🗑️ Removing ${categoriesToDelete.length} extra categories: ${categoriesToDelete.map(c => c.name).join(', ')}`);
+    
+    // Delete associated data
+    await prisma.topicQueue.deleteMany({ where: { categoryId: { in: categoryIds } } });
+    await prisma.room.deleteMany({ where: { categoryId: { in: categoryIds } } });
+    await prisma.category.deleteMany({ where: { id: { in: categoryIds } } });
+  }
+  
+  // Rename "Delhi" to "Delhi NCR" if needed
+  await prisma.region.updateMany({
+    where: { name: 'Delhi' },
+    data: { name: 'Delhi NCR' },
+  });
+  
+  // === CLEANUP OLD ROOMS ===
   // Delete ALL AI-hosted rooms on startup - they'll be recreated with proper staggering
   // This ensures rooms have correctly staggered times after server restart
   const aiRoomsDeleted = await prisma.room.deleteMany({
