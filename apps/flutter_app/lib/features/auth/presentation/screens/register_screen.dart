@@ -81,9 +81,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     final regionsAsync = ref.watch(regionsProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create Account'),
-      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -92,9 +89,23 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                const SizedBox(height: 20),
+                // Bolo Logo - smaller for register screen
+                Center(
+                  child: Image.asset(
+                    'assets/images/bolo_logo.png',
+                    width: 140,
+                    height: 140,
+                  ),
+                ),
+                const SizedBox(height: 16),
                 Text(
                   'Join the conversation',
-                  style: Theme.of(context).textTheme.headlineSmall,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -102,8 +113,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Colors.grey[600],
                       ),
+                  textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
                 // Username field
                 TextFormField(
                   controller: _usernameController,

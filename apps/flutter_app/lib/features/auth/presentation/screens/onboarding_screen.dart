@@ -18,29 +18,15 @@ class OnboardingScreen extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.mic_rounded,
-                  size: 64,
-                  color: AppColors.primary,
-                ),
+              Image.asset(
+                'assets/images/bolo_logo.png',
+                width: 180,
+                height: 180,
               ),
               const SizedBox(height: 24),
-              Text(
-                'Bolo Debate',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                    ),
+              const CircularProgressIndicator(
+                color: AppColors.primary,
               ),
-              const SizedBox(height: 24),
-              const CircularProgressIndicator(),
             ],
           ),
         ),
@@ -54,30 +40,13 @@ class OnboardingScreen extends ConsumerWidget {
           child: Column(
             children: [
               const Spacer(),
-              // Logo/Icon
-              Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.mic_rounded,
-                  size: 64,
-                  color: AppColors.primary,
-                ),
+              // Bolo Logo
+              Image.asset(
+                'assets/images/bolo_logo.png',
+                width: 220,
+                height: 220,
               ),
-              const SizedBox(height: 32),
-              // Title
-              Text(
-                'Bolo Debate',
-                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                    ),
-              ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               // Tagline
               Text(
                 'Voice your opinion on topics that matter',
@@ -92,18 +61,21 @@ class OnboardingScreen extends ConsumerWidget {
                 icon: Icons.record_voice_over_rounded,
                 title: 'Live Audio Debates',
                 description: 'Join discussions on trending topics',
+                color: AppColors.primary,
               ),
               const SizedBox(height: 16),
               _FeatureItem(
                 icon: Icons.location_on_rounded,
-                title: 'Local News',
+                title: 'Local Topics',
                 description: 'Topics relevant to your region',
+                color: AppColors.secondary,
               ),
               const SizedBox(height: 16),
               _FeatureItem(
                 icon: Icons.people_rounded,
                 title: 'Anonymous & Safe',
                 description: 'Express freely without revealing identity',
+                color: AppColors.accent,
               ),
               const Spacer(flex: 2),
               // Buttons
@@ -135,11 +107,13 @@ class _FeatureItem extends StatelessWidget {
   final IconData icon;
   final String title;
   final String description;
+  final Color color;
 
   const _FeatureItem({
     required this.icon,
     required this.title,
     required this.description,
+    required this.color,
   });
 
   @override
@@ -150,10 +124,10 @@ class _FeatureItem extends StatelessWidget {
           width: 48,
           height: 48,
           decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.1),
+            color: color.withOpacity(0.1),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(icon, color: AppColors.primary),
+          child: Icon(icon, color: color),
         ),
         const SizedBox(width: 16),
         Expanded(

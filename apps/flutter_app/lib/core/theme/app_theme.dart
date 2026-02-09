@@ -32,41 +32,51 @@ class ThemeModeNotifier extends StateNotifier<ThemeMode> {
 class AppColors {
   AppColors._();
 
-  // Primary colors
-  static const Color primary = Color(0xFF6366F1);
-  static const Color primaryLight = Color(0xFF818CF8);
-  static const Color primaryDark = Color(0xFF4F46E5);
+  // Primary colors - Teal from Bolo logo
+  static const Color primary = Color(0xFF14B8A6);
+  static const Color primaryLight = Color(0xFF2DD4BF);
+  static const Color primaryDark = Color(0xFF0D9488);
 
-  // Secondary colors
-  static const Color secondary = Color(0xFF10B981);
-  static const Color secondaryLight = Color(0xFF34D399);
+  // Secondary colors - Orange from speech bubbles
+  static const Color secondary = Color(0xFFF59E0B);
+  static const Color secondaryLight = Color(0xFFFBBF24);
+  static const Color secondaryDark = Color(0xFFD97706);
 
-  // Accent colors
-  static const Color accent = Color(0xFFF59E0B);
-  static const Color accentLight = Color(0xFFFBBF24);
+  // Accent colors - Deep Purple from microphone
+  static const Color accent = Color(0xFF4338CA);
+  static const Color accentLight = Color(0xFF6366F1);
+  static const Color accentDark = Color(0xFF3730A3);
+
+  // Coral/Orange accent (from right speech bubble)
+  static const Color coral = Color(0xFFFF6B4A);
+  static const Color coralLight = Color(0xFFFF8A6B);
+
+  // Lavender accents (from decorative shapes)
+  static const Color lavender = Color(0xFFE9D5FF);
+  static const Color lavenderDark = Color(0xFFC4B5FD);
 
   // Semantic colors
   static const Color success = Color(0xFF22C55E);
   static const Color error = Color(0xFFEF4444);
   static const Color warning = Color(0xFFF59E0B);
-  static const Color info = Color(0xFF3B82F6);
+  static const Color info = Color(0xFF14B8A6);
 
-  // Side colors (for debates)
-  static const Color sideA = Color(0xFF3B82F6);
-  static const Color sideB = Color(0xFFEF4444);
+  // Side colors (for debates) - using theme colors
+  static const Color sideA = Color(0xFF14B8A6);  // Teal
+  static const Color sideB = Color(0xFFF59E0B);  // Orange
   static const Color neutral = Color(0xFF6B7280);
 
   // Background colors
-  static const Color backgroundLight = Color(0xFFF9FAFB);
-  static const Color backgroundDark = Color(0xFF111827);
+  static const Color backgroundLight = Color(0xFFF0FDFA);  // Tinted with teal
+  static const Color backgroundDark = Color(0xFF0F172A);
   static const Color surfaceLight = Color(0xFFFFFFFF);
-  static const Color surfaceDark = Color(0xFF1F2937);
+  static const Color surfaceDark = Color(0xFF1E293B);
 
   // Text colors
-  static const Color textPrimaryLight = Color(0xFF111827);
-  static const Color textSecondaryLight = Color(0xFF6B7280);
-  static const Color textPrimaryDark = Color(0xFFF9FAFB);
-  static const Color textSecondaryDark = Color(0xFF9CA3AF);
+  static const Color textPrimaryLight = Color(0xFF0F172A);
+  static const Color textSecondaryLight = Color(0xFF64748B);
+  static const Color textPrimaryDark = Color(0xFFF8FAFC);
+  static const Color textSecondaryDark = Color(0xFF94A3B8);
 }
 
 class AppTheme {

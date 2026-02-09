@@ -131,12 +131,13 @@ class _CosmicVisualizerPainter extends CustomPainter {
   final List<double> frequencyBands;
   final bool isActive;
   
-  // Color palette - cosmic theme
-  static const Color primaryCyan = Color(0xFF00FFFF);
-  static const Color deepPurple = Color(0xFF8B5CF6);
-  static const Color magenta = Color(0xFFFF006E);
-  static const Color electricBlue = Color(0xFF0066FF);
-  static const Color teal = Color(0xFF14B8A6);
+  // Color palette - Bolo brand theme
+  static const Color primaryTeal = Color(0xFF14B8A6);     // Main brightTeal from logo
+  static const Color brightTeal = Color(0xFF2DD4BF);      // Lighter brightTeal
+  static const Color orange = Color(0xFFF59E0B);          // Orange speech bubble
+  static const Color coral = Color(0xFFFF6B4A);           // Coral/red-orange
+  static const Color deepPurple = Color(0xFF4338CA);      // Purple from mic
+  static const Color lavender = Color(0xFFC4B5FD);        // Lavender accents
   
   _CosmicVisualizerPainter({
     required this.rotationAngle,
@@ -200,13 +201,13 @@ class _CosmicVisualizerPainter extends CustomPainter {
   void _drawNebulaBackground(Canvas canvas, Offset center, double maxRadius) {
     final baseIntensity = 0.08 + (audioLevel * 0.12) + (pulseValue * 0.04);
     
-    // Multi-color nebula gradient
+    // Multi-color nebula gradient - Bolo theme
     final gradient = RadialGradient(
       colors: [
         deepPurple.withOpacity(baseIntensity * 0.8),
-        magenta.withOpacity(baseIntensity * 0.4),
-        primaryCyan.withOpacity(baseIntensity * 0.6),
-        electricBlue.withOpacity(baseIntensity * 0.3),
+        coral.withOpacity(baseIntensity * 0.4),
+        primaryTeal.withOpacity(baseIntensity * 0.6),
+        orange.withOpacity(baseIntensity * 0.3),
         Colors.transparent,
       ],
       stops: const [0.0, 0.25, 0.5, 0.75, 1.0],
@@ -250,7 +251,7 @@ class _CosmicVisualizerPainter extends CustomPainter {
       }
       path.close();
       
-      final colors = [primaryCyan, deepPurple, magenta];
+      final colors = [primaryTeal, deepPurple, coral];
       final opacity = (0.08 + audioLevel * 0.12 - wave * 0.02).clamp(0.0, 0.25);
       
       final paint = Paint()
@@ -292,7 +293,7 @@ class _CosmicVisualizerPainter extends CustomPainter {
       final opacity = (1 - ripplePhase) * (0.15 + audioLevel * 0.2);
       
       final paint = Paint()
-        ..color = primaryCyan.withOpacity(opacity.clamp(0.0, 0.4))
+        ..color = primaryTeal.withOpacity(opacity.clamp(0.0, 0.4))
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5 + audioLevel * 2
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
@@ -327,11 +328,11 @@ class _CosmicVisualizerPainter extends CustomPainter {
       final colorPhase = (i / count + rotationAngle / (2 * math.pi)) % 1.0;
       Color particleColor;
       if (colorPhase < 0.33) {
-        particleColor = Color.lerp(primaryCyan, deepPurple, colorPhase * 3)!;
+        particleColor = Color.lerp(primaryTeal, deepPurple, colorPhase * 3)!;
       } else if (colorPhase < 0.66) {
-        particleColor = Color.lerp(deepPurple, magenta, (colorPhase - 0.33) * 3)!;
+        particleColor = Color.lerp(deepPurple, coral, (colorPhase - 0.33) * 3)!;
       } else {
-        particleColor = Color.lerp(magenta, primaryCyan, (colorPhase - 0.66) * 3)!;
+        particleColor = Color.lerp(coral, primaryTeal, (colorPhase - 0.66) * 3)!;
       }
       
       final opacity = (0.4 + random.nextDouble() * 0.4 + audioLevel * 0.3).clamp(0.0, 1.0);
@@ -391,7 +392,7 @@ class _CosmicVisualizerPainter extends CustomPainter {
       
       // Core line
       final linePaint = Paint()
-        ..color = primaryCyan.withOpacity(opacity * 1.5)
+        ..color = primaryTeal.withOpacity(opacity * 1.5)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 0.8;
       
@@ -401,10 +402,10 @@ class _CosmicVisualizerPainter extends CustomPainter {
   
   void _drawOrbitalSystem(Canvas canvas, Offset center, double maxRadius) {
     final orbits = [
-      {'radius': 0.8, 'tilt': 0.25, 'speed': 1.0, 'color': primaryCyan, 'nodes': 8},
+      {'radius': 0.8, 'tilt': 0.25, 'speed': 1.0, 'color': primaryTeal, 'nodes': 8},
       {'radius': 0.65, 'tilt': -0.2, 'speed': -0.7, 'color': deepPurple, 'nodes': 6},
-      {'radius': 0.5, 'tilt': 0.15, 'speed': 0.5, 'color': magenta, 'nodes': 4},
-      {'radius': 0.9, 'tilt': -0.1, 'speed': 0.3, 'color': teal, 'nodes': 12},
+      {'radius': 0.5, 'tilt': 0.15, 'speed': 0.5, 'color': coral, 'nodes': 4},
+      {'radius': 0.9, 'tilt': -0.1, 'speed': 0.3, 'color': brightTeal, 'nodes': 12},
     ];
     
     for (final orbit in orbits) {
@@ -497,7 +498,7 @@ class _CosmicVisualizerPainter extends CustomPainter {
       }
       path.close();
       
-      final colors = [primaryCyan, deepPurple, magenta];
+      final colors = [primaryTeal, deepPurple, coral];
       final color = colors[layer % 3];
       
       // Outer glow
@@ -544,9 +545,9 @@ class _CosmicVisualizerPainter extends CustomPainter {
       final colorPhase = (i / tendrilCount + pulseValue * 0.5) % 1.0;
       Color tendrilColor;
       if (colorPhase < 0.5) {
-        tendrilColor = Color.lerp(primaryCyan, deepPurple, colorPhase * 2)!;
+        tendrilColor = Color.lerp(primaryTeal, deepPurple, colorPhase * 2)!;
       } else {
-        tendrilColor = Color.lerp(deepPurple, primaryCyan, (colorPhase - 0.5) * 2)!;
+        tendrilColor = Color.lerp(deepPurple, primaryTeal, (colorPhase - 0.5) * 2)!;
       }
       
       final opacity = (0.15 + audioLevel * 0.25).clamp(0.0, 0.5);
@@ -570,7 +571,7 @@ class _CosmicVisualizerPainter extends CustomPainter {
       final atmosphereRadius = pulseRadius * (1.5 + i * 0.3);
       final atmosphereOpacity = (0.08 - i * 0.015 + audioLevel * 0.05).clamp(0.0, 0.15);
       
-      final colors = [primaryCyan, deepPurple, magenta, teal];
+      final colors = [primaryTeal, deepPurple, coral, brightTeal];
       final atmosphereGradient = RadialGradient(
         colors: [
           colors[i % 4].withOpacity(atmosphereOpacity),
@@ -592,8 +593,8 @@ class _CosmicVisualizerPainter extends CustomPainter {
     final orbGradient = RadialGradient(
       colors: [
         const Color(0xFF1A1A2E),
-        Color.lerp(deepPurple, primaryCyan, pulseValue)!.withOpacity(0.8),
-        primaryCyan.withOpacity(0.6),
+        Color.lerp(deepPurple, primaryTeal, pulseValue)!.withOpacity(0.8),
+        primaryTeal.withOpacity(0.6),
       ],
       stops: const [0.0, 0.6, 1.0],
     );
@@ -607,7 +608,7 @@ class _CosmicVisualizerPainter extends CustomPainter {
     
     // Edge highlight ring
     final edgePaint = Paint()
-      ..color = primaryCyan.withOpacity(0.5 + audioLevel * 0.4)
+      ..color = primaryTeal.withOpacity(0.5 + audioLevel * 0.4)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2 + audioLevel * 2
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
@@ -635,7 +636,7 @@ class _CosmicVisualizerPainter extends CustomPainter {
       final gradient = RadialGradient(
         colors: [
           Colors.white.withOpacity(opacity),
-          primaryCyan.withOpacity(opacity * 0.6),
+          primaryTeal.withOpacity(opacity * 0.6),
           Colors.transparent,
         ],
         stops: const [0.0, 0.4, 1.0],
@@ -658,7 +659,7 @@ class _CosmicVisualizerPainter extends CustomPainter {
       colors: [
         Colors.white,
         Colors.white.withOpacity(0.9),
-        primaryCyan.withOpacity(0.7),
+        primaryTeal.withOpacity(0.7),
         Colors.transparent,
       ],
       stops: const [0.0, 0.3, 0.6, 1.0],

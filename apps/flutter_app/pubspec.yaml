@@ -60,12 +60,5 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  # Uncomment and add fonts when available
-  # assets:
-  #   - assets/images/
-  #   - assets/icons/
-  #
-  # fonts:
-  #   - family: Poppins
-  #     fonts:
-  #       - asset: assets/fonts/Poppins-Regular.ttf
+  assets:
+    - assets/images/

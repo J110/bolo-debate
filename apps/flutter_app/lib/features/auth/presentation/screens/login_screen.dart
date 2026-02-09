@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:bolo_debate/core/theme/app_theme.dart';
 import 'package:bolo_debate/features/auth/presentation/providers/auth_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -44,9 +45,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Welcome Back'),
-      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -55,25 +53,43 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 32),
+                const SizedBox(height: 40),
+                // Bolo Logo
+                Center(
+                  child: Image.asset(
+                    'assets/images/bolo_logo.png',
+                    width: 200,
+                    height: 200,
+                  ),
+                ),
+                const SizedBox(height: 24),
                 Text(
-                  'Enter your username',
-                  style: Theme.of(context).textTheme.headlineSmall,
+                  'Welcome Back!',
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Sign in with the username you created',
+                  'Sign in to join the conversation',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Colors.grey[600],
                       ),
+                  textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 40),
                 TextFormField(
                   controller: _usernameController,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Username',
                     hintText: 'Enter your username',
-                    prefixIcon: Icon(Icons.person_outline),
+                    prefixIcon: const Icon(Icons.person_outline),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                    ),
                   ),
                   textInputAction: TextInputAction.done,
                   onFieldSubmitted: (_) => _login(),
@@ -84,21 +100,52 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: _isLoading ? null : _login,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                   child: _isLoading
                       ? const SizedBox(
                           height: 20,
                           width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
-                      : const Text('Sign In'),
+                      : const Text(
+                          'Sign In',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                 ),
                 const SizedBox(height: 16),
                 TextButton(
                   onPressed: () => context.push('/auth/register'),
-                  child: const Text('Don\'t have an account? Create one'),
+                  child: RichText(
+                    text: TextSpan(
+                      text: 'Don\'t have an account? ',
+                      style: TextStyle(color: Colors.grey[600]),
+                      children: const [
+                        TextSpan(
+                          text: 'Create one',
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
