@@ -110,19 +110,39 @@ export async function regionRoutes(app: FastifyInstance) {
     });
   });
 
-  // Reset all rooms and topics - regenerate fresh
+  // Reset all rooms - regenerate fresh using available trending topics
   app.post('/reset', async (_request, reply) => {
-    console.log('🔄 Resetting all rooms and topics...');
+    console.log('🔄 Resetting rooms...');
     
-    // Delete all topic queue (old regional language topics)
-    const deletedTopics = await prisma.topicQueue.deleteMany({});
-    console.log(`  Deleted ${deletedTopics.count} cached topics`);
+    const now = new Date();
+    
+    // Only delete USED or EXPIRED topics (preserve fresh trending topics)
+    const deletedTopics = await prisma.topicQueue.deleteMany({
+      where: {
+        OR: [
+          { isUsed: true },  // Used topics
+          { usageCount: { gte: 3 } },  // Overused topics
+          { expiresAt: { lt: now } },  // Expired topics
+        ],
+      },
+    });
+    console.log(`  Deleted ${deletedTopics.count} used/expired topics`);
+    
+    // Reset usage count on remaining topics so they can be reused
+    await prisma.topicQueue.updateMany({
+      where: { isUsed: false },
+      data: { usageCount: 0 },
+    });
     
     // Delete all AI-hosted rooms
     const deletedRooms = await prisma.room.deleteMany({
       where: { isAiHosted: true },
     });
     console.log(`  Deleted ${deletedRooms.count} AI-hosted rooms`);
+    
+    // Check how many topics are available
+    const availableTopics = await prisma.topicQueue.count({ where: { isUsed: false } });
+    console.log(`  ${availableTopics} trending topics available for room creation`);
     
     // Regenerate rooms for all regions
     console.log('  Creating fresh rooms for all regions...');
@@ -140,6 +160,7 @@ export async function regionRoutes(app: FastifyInstance) {
       data: {
         deletedTopics: deletedTopics.count,
         deletedRooms: deletedRooms.count,
+        availableTopics,
         newLiveRooms: liveRooms,
         newScheduledRooms: scheduledRooms,
         regions: regions.map(r => r.name),
