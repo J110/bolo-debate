@@ -207,6 +207,7 @@ class HomeScreen extends ConsumerWidget {
                             child: RoomCard(
                               room: rooms[index],
                               onTap: () => context.push('/room/${rooms[index].id}/detail'),
+                              showShareButton: false,
                             ),
                           ),
                         );
@@ -277,6 +278,7 @@ class HomeScreen extends ConsumerWidget {
                           child: RoomCard(
                             room: rooms[index],
                             onTap: () => context.push('/room/${rooms[index].id}/detail'),
+                            showShareButton: false,
                           ),
                         );
                       },

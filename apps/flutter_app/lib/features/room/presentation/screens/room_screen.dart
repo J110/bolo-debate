@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:bolo_debate/core/constants/app_constants.dart';
 import 'package:bolo_debate/core/theme/app_theme.dart';
 import 'package:bolo_debate/core/services/livekit_service.dart';
@@ -930,14 +931,105 @@ $shareUrl''';
                 leading: const Icon(Icons.flag_outlined, color: Colors.white),
                 title: const Text('Report Issue', style: TextStyle(color: Colors.white)),
                 onTap: () {
-                  // TODO: Report
                   Navigator.pop(context);
+                  _showReportDialog(room);
                 },
               ),
             ],
           ),
         );
       },
+    );
+  }
+
+  void _showReportDialog(Room room) {
+    final reportController = TextEditingController();
+    final currentUser = ref.read(currentUserProvider);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Report Issue'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Please describe the issue you\'re experiencing:',
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: reportController,
+              maxLines: 4,
+              decoration: InputDecoration(
+                hintText: 'Describe the issue...',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                filled: true,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final description = reportController.text.trim();
+              if (description.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please describe the issue')),
+                );
+                return;
+              }
+              
+              Navigator.pop(context);
+              
+              // Send email
+              final subject = Uri.encodeComponent('Issue Report: ${room.title}');
+              final body = Uri.encodeComponent('''
+Issue Report for Bolo Debate
+
+Room: ${room.title}
+Room ID: ${room.id}
+Reporter: ${currentUser?.displayName ?? 'Unknown'} (${currentUser?.username ?? 'Unknown'})
+Time: ${DateTime.now().toIso8601String()}
+
+Issue Description:
+$description
+''');
+              
+              final emailUri = Uri.parse('mailto:developers@turings.xyz?subject=$subject&body=$body');
+              
+              try {
+                if (await canLaunchUrl(emailUri)) {
+                  await launchUrl(emailUri);
+                } else {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Could not open email app. Please email developers@turings.xyz directly.'),
+                        duration: Duration(seconds: 5),
+                      ),
+                    );
+                  }
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error: $e')),
+                  );
+                }
+              }
+            },
+            child: const Text('Submit Report'),
+          ),
+        ],
+      ),
     );
   }
 }
