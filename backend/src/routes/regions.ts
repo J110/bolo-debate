@@ -1,12 +1,115 @@
 import { FastifyInstance } from 'fastify';
 import { prisma } from '../config/database.js';
 import { ensureMinimumRoomsPerRegion } from '../services/room.js';
+import { generateTopicsFromTrending } from '../services/ai.js';
+import { refreshTrendingData, cleanupExpiredTopics, cleanupExpiredTrendingItems } from '../services/trending.js';
 
 // Simplified regions and categories to keep
 const KEEP_REGIONS = ['National', 'Delhi NCR', 'Delhi', 'Mumbai', 'Bangalore', 'Hyderabad', 'Chennai', 'Kolkata'];
 const KEEP_CATEGORIES = ['Politics', 'Technology', 'Business', 'Sports', 'Entertainment'];
 
 export async function regionRoutes(app: FastifyInstance) {
+  // Refresh trending data and generate new topics
+  app.post('/trending/refresh', async (_request, reply) => {
+    console.log('📰 Manual trending data refresh triggered...');
+    
+    try {
+      // 1. Cleanup expired data
+      const expiredTopics = await cleanupExpiredTopics();
+      const expiredTrending = await cleanupExpiredTrendingItems();
+      
+      // 2. Fetch new trending items
+      const refreshResult = await refreshTrendingData();
+      
+      // 3. Generate topics from trending
+      const topicsResult = await generateTopicsFromTrending();
+      
+      // 4. Get current counts
+      const totalTopics = await prisma.topicQueue.count({ where: { isUsed: false } });
+      const totalTrending = await prisma.trendingItem.count({ where: { isProcessed: false } });
+      
+      console.log('✅ Manual trending refresh complete');
+      
+      return reply.send({
+        success: true,
+        data: {
+          cleanup: {
+            expiredTopics,
+            expiredTrending,
+          },
+          refresh: refreshResult,
+          topicsGenerated: topicsResult.converted,
+          totals: {
+            availableTopics: totalTopics,
+            pendingTrendingItems: totalTrending,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Error in manual trending refresh:', error);
+      return reply.status(500).send({
+        success: false,
+        error: 'Failed to refresh trending data',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  });
+
+  // Get trending stats
+  app.get('/trending/stats', async (_request, reply) => {
+    const now = new Date();
+    
+    const [
+      trendingCount,
+      unprocessedTrending,
+      availableTopics,
+      topicsByCategory,
+      topicsByRegion,
+    ] = await Promise.all([
+      prisma.trendingItem.count(),
+      prisma.trendingItem.count({ where: { isProcessed: false, expiresAt: { gt: now } } }),
+      prisma.topicQueue.count({ where: { isUsed: false, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] } }),
+      prisma.topicQueue.groupBy({
+        by: ['categoryId'],
+        where: { isUsed: false },
+        _count: true,
+      }),
+      prisma.topicQueue.groupBy({
+        by: ['regionId'],
+        where: { isUsed: false },
+        _count: true,
+      }),
+    ]);
+    
+    // Get category and region names
+    const categories = await prisma.category.findMany();
+    const regions = await prisma.region.findMany();
+    
+    const categoryMap = new Map(categories.map(c => [c.id, c.name]));
+    const regionMap = new Map(regions.map(r => [r.id, r.name]));
+    
+    return reply.send({
+      success: true,
+      data: {
+        trendingItems: {
+          total: trendingCount,
+          unprocessed: unprocessedTrending,
+        },
+        topics: {
+          available: availableTopics,
+          byCategory: topicsByCategory.map(t => ({
+            category: categoryMap.get(t.categoryId) || 'Unknown',
+            count: t._count,
+          })),
+          byRegion: topicsByRegion.map(t => ({
+            region: regionMap.get(t.regionId) || 'Unknown',
+            count: t._count,
+          })),
+        },
+      },
+    });
+  });
+
   // Reset all rooms and topics - regenerate fresh
   app.post('/reset', async (_request, reply) => {
     console.log('🔄 Resetting all rooms and topics...');

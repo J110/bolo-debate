@@ -56,8 +56,9 @@ model Category {
   color     String
   createdAt DateTime @default(now())
 
-  rooms       Room[]
-  newsSources NewsSource[]
+  rooms          Room[]
+  newsSources    NewsSource[]
+  trendingItems  TrendingItem[]
   userPreferences UserCategoryPreference[]
 }
 
@@ -227,6 +228,31 @@ model Friendship {
   @@index([friendId])
 }
 
+// Raw trending data fetched from news/RSS sources
+model TrendingItem {
+  id            String   @id @default(uuid()) @db.Uuid
+  regionId      String?  @db.Uuid
+  categoryId    String?  @db.Uuid
+  headline      String
+  summary       String?
+  sourceUrl     String?
+  sourceName    String?           // e.g., "Times of India", "NDTV"
+  publishedAt   DateTime?         // When the news was published
+  fetchedAt     DateTime @default(now())
+  trendingScore Float    @default(1.0)  // Higher = more trending
+  isProcessed   Boolean  @default(false) // Has this been converted to a topic?
+  expiresAt     DateTime          // When this trending item expires
+
+  category Category? @relation(fields: [categoryId], references: [id])
+
+  @@index([regionId])
+  @@index([categoryId])
+  @@index([fetchedAt])
+  @@index([expiresAt])
+  @@index([isProcessed])
+}
+
+// Legacy - kept for backward compatibility
 model NewsSource {
   id           String   @id @default(uuid()) @db.Uuid
   regionId     String?  @db.Uuid
@@ -243,20 +269,35 @@ model NewsSource {
   @@index([fetchedAt])
 }
 
-// Topic queue for caching pre-generated debate topics
+// Debate topics generated from trending content
 model TopicQueue {
-  id           String   @id @default(uuid()) @db.Uuid
-  regionId     String   @db.Uuid
-  categoryId   String   @db.Uuid
-  title        String
-  description  String?
-  sideALabel   String
-  sideBLabel   String
-  subtopics    Json?
-  isUsed       Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  usedAt       DateTime?
+  id             String    @id @default(uuid()) @db.Uuid
+  regionId       String    @db.Uuid
+  categoryId     String    @db.Uuid
+  title          String
+  description    String?
+  sideALabel     String
+  sideBLabel     String
+  subtopics      Json?
+  
+  // Source tracking
+  sourceHeadline String?           // Original news headline that inspired this topic
+  sourceUrl      String?           // Link to original source
+  
+  // Lifecycle management
+  trendingScore  Float     @default(1.0)  // Priority score (higher = use first)
+  isUsed         Boolean   @default(false)
+  usageCount     Int       @default(0)    // How many times this topic has been used
+  maxUsages      Int       @default(3)    // Max times a topic can be used before expiring
+  
+  // Timestamps
+  createdAt      DateTime  @default(now())
+  usedAt         DateTime?
+  expiresAt      DateTime?         // Hard expiry - topic won't be used after this
+  lastRefreshedAt DateTime @default(now()) // Last time trending score was updated
 
   @@index([regionId, categoryId, isUsed])
   @@index([createdAt])
+  @@index([expiresAt])
+  @@index([trendingScore])
 }

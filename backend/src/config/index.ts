@@ -15,6 +15,9 @@ const envSchema = z.object({
   OPENAI_API_KEY: z.string().default(''),
   GROQ_API_KEY: z.string().default(''),
   OLLAMA_URL: z.string().default('http://localhost:11434'),
+  // News/Trending APIs
+  GNEWS_API_KEY: z.string().default(''),
+  NEWSAPI_KEY: z.string().default(''),
   PORT: z.string().default('3000'),
   HOST: z.string().default('0.0.0.0'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
@@ -39,6 +42,8 @@ const env = {
   OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
   GROQ_API_KEY: process.env.GROQ_API_KEY || '',
   OLLAMA_URL: process.env.OLLAMA_URL || 'http://localhost:11434',
+  GNEWS_API_KEY: process.env.GNEWS_API_KEY || '',
+  NEWSAPI_KEY: process.env.NEWSAPI_KEY || '',
   PORT: process.env.PORT || '3000',
   HOST: process.env.HOST || '0.0.0.0',
   NODE_ENV: (process.env.NODE_ENV as 'development' | 'production' | 'test') || 'development',
@@ -68,6 +73,10 @@ export const config = {
   },
   ollama: {
     url: env.OLLAMA_URL,
+  },
+  news: {
+    gnewsApiKey: env.GNEWS_API_KEY,
+    newsapiKey: env.NEWSAPI_KEY,
   },
   server: {
     port: parseInt(env.PORT, 10),

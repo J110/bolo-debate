@@ -170,7 +170,7 @@ function addToRecentTopics(title: string) {
   }
 }
 
-// Get a topic from cache first, only generate if needed
+// Get a topic from trending queue first, fallback if needed
 export async function generateDebateTopics(
   regionId: string,
   categoryId: string,
@@ -185,38 +185,9 @@ export async function generateDebateTopics(
     throw new Error('Invalid region or category');
   }
 
-  // First, try to get from topic queue cache
-  const cachedTopics = await prisma.topicQueue.findMany({
-    where: {
-      regionId,
-      categoryId,
-      isUsed: false,
-    },
-    take: count,
-    orderBy: { createdAt: 'asc' },
-  });
-
-  if (cachedTopics.length >= count) {
-    // Mark topics as used
-    await prisma.topicQueue.updateMany({
-      where: { id: { in: cachedTopics.map(t => t.id) } },
-      data: { isUsed: true, usedAt: new Date() },
-    });
-
-    console.log(`📦 Using ${cachedTopics.length} cached topics for ${category.name}`);
-    
-    return cachedTopics.map(topic => ({
-      title: topic.title,
-      description: topic.description || '',
-      sideALabel: topic.sideALabel,
-      sideBLabel: topic.sideBLabel,
-      categoryId,
-      regionId,
-    }));
-  }
-
-  // Not enough cached topics - use fallback with duplicate prevention
-  // First, get currently active room titles to avoid duplicates
+  const now = new Date();
+  
+  // Get currently active room titles to avoid duplicates
   const activeRooms = await prisma.room.findMany({
     where: {
       status: { in: ['LIVE', 'SCHEDULED'] },
@@ -226,33 +197,126 @@ export async function generateDebateTopics(
   });
   const activeTopicTitles = new Set(activeRooms.map(r => r.title));
 
+  // Try to get trending topics with proper lifecycle management
+  // Query: not expired, not over max usage, sorted by trending score (highest first)
+  const nationalRegionId = await getNationalRegionId();
+  const activeTitlesArray = Array.from(activeTopicTitles);
+  
+  const trendingTopics = await prisma.topicQueue.findMany({
+    where: {
+      AND: [
+        // Region filter: same region OR national topics
+        {
+          OR: [
+            { regionId },
+            { regionId: nationalRegionId },
+          ],
+        },
+        // Category filter
+        { categoryId },
+        // Lifecycle checks: not expired
+        {
+          OR: [
+            { expiresAt: null },
+            { expiresAt: { gt: now } },
+          ],
+        },
+        // Usage limit
+        { usageCount: { lt: 3 } },
+        // Not currently active (only filter if there are active titles)
+        ...(activeTitlesArray.length > 0 ? [{ title: { notIn: activeTitlesArray } }] : []),
+      ],
+    },
+    take: count * 2,  // Get more than needed for filtering
+    orderBy: [
+      { trendingScore: 'desc' },  // Highest trending first
+      { createdAt: 'desc' },  // Newest first as tiebreaker
+    ],
+  });
+
+  // Filter to get unique titles
+  const uniqueTopics: typeof trendingTopics = [];
+  const seenTitles = new Set<string>();
+  
+  for (const topic of trendingTopics) {
+    if (!seenTitles.has(topic.title) && !activeTopicTitles.has(topic.title)) {
+      uniqueTopics.push(topic);
+      seenTitles.add(topic.title);
+      if (uniqueTopics.length >= count) break;
+    }
+  }
+
+  if (uniqueTopics.length >= count) {
+    // Update usage count for selected topics
+    for (const topic of uniqueTopics) {
+      await prisma.topicQueue.update({
+        where: { id: topic.id },
+        data: { 
+          usageCount: { increment: 1 },
+          usedAt: now,
+          isUsed: topic.usageCount + 1 >= topic.maxUsages,  // Mark used if at max
+        },
+      });
+    }
+
+    console.log(`🔥 Using ${uniqueTopics.length} trending topics for ${category.name} in ${region.name}`);
+    
+    return uniqueTopics.map(topic => ({
+      title: topic.title,
+      description: topic.description || '',
+      sideALabel: topic.sideALabel,
+      sideBLabel: topic.sideBLabel,
+      categoryId,
+      regionId,
+    }));
+  }
+
+  // Not enough trending topics - use fallback
+  console.log(`⚠️ Only ${uniqueTopics.length} trending topics for ${category.name} in ${region.name}, supplementing with fallback`);
+
   const categoryTopics = fallbackTopics[category.name] || fallbackTopics.default;
-  // Also include default topics for variety
-  const allTopics = [...categoryTopics, ...fallbackTopics.default];
+  const allFallbacks = [...categoryTopics, ...fallbackTopics.default];
   
   // Filter out recently used and currently active topics
-  const availableTopics = allTopics.filter(t => 
-    !recentlyUsedTopics.has(t.title) && !activeTopicTitles.has(t.title)
+  const availableFallbacks = allFallbacks.filter(t => 
+    !recentlyUsedTopics.has(t.title) && !activeTopicTitles.has(t.title) && !seenTitles.has(t.title)
   );
   
-  // If all topics are used, just shuffle all topics (reset cycle)
-  const topicsToUse = availableTopics.length >= count ? availableTopics : allTopics;
-  const shuffled = topicsToUse.sort(() => Math.random() - 0.5);
+  const shuffled = availableFallbacks.length >= (count - uniqueTopics.length) 
+    ? availableFallbacks.sort(() => Math.random() - 0.5)
+    : allFallbacks.sort(() => Math.random() - 0.5);
   
-  console.log(`⚠️ No cached topics for ${category.name} in ${region.name}, using fallback (${availableTopics.length} unique available)`);
-  
-  const selectedTopics = shuffled.slice(0, count);
-  // Track the selected topics
-  selectedTopics.forEach(t => addToRecentTopics(t.title));
-  
-  return selectedTopics.map(topic => ({
+  const selectedFallbacks = shuffled.slice(0, count - uniqueTopics.length);
+  selectedFallbacks.forEach(t => addToRecentTopics(t.title));
+
+  // Combine trending and fallback topics
+  const result: GeneratedTopic[] = uniqueTopics.map(topic => ({
+    title: topic.title,
+    description: topic.description || '',
+    sideALabel: topic.sideALabel,
+    sideBLabel: topic.sideBLabel,
+    categoryId,
+    regionId,
+  }));
+
+  result.push(...selectedFallbacks.map(topic => ({
     title: topic.title,
     description: `A debate topic for ${region.name} community`,
     sideALabel: topic.sideA,
     sideBLabel: topic.sideB,
     categoryId,
     regionId,
-  }));
+  })));
+
+  return result;
+}
+
+/**
+ * Get National region ID for fallback
+ */
+async function getNationalRegionId(): Promise<string> {
+  const region = await prisma.region.findFirst({ where: { name: 'National' } });
+  return region?.id || '';
 }
 
 // Batch generate topics - call this once per hour via scheduler
@@ -748,4 +812,237 @@ Keep it brief and constructive. Just output the suggestion, no prefix.`;
     console.error('Error generating bot message:', error);
     return null;
   }
+}
+
+/**
+ * Convert trending news headlines into debate topics
+ * This is the core function for generating relevant, timely topics
+ */
+export async function convertTrendingToTopics(
+  trendingItems: Array<{
+    id: string;
+    headline: string;
+    summary: string | null;
+    sourceUrl: string | null;
+    regionId: string | null;
+    categoryId: string | null;
+    trendingScore: number;
+  }>
+): Promise<number> {
+  if (trendingItems.length === 0) {
+    console.log('⚠️ No trending items to convert');
+    return 0;
+  }
+
+  // Return 0 if no AI provider
+  if (!hasGroq && !hasOpenAI) {
+    console.log('⚠️ No AI provider available for topic conversion');
+    return 0;
+  }
+
+  console.log(`🔄 Converting ${trendingItems.length} trending items to debate topics...`);
+
+  let converted = 0;
+  const batchSize = 5; // Process in batches to avoid rate limits
+
+  // Group items by category for more focused topic generation
+  for (let i = 0; i < trendingItems.length; i += batchSize) {
+    const batch = trendingItems.slice(i, i + batchSize);
+    
+    // Create a prompt with multiple headlines
+    const headlineList = batch
+      .map((item, idx) => `${idx + 1}. "${item.headline}"${item.summary ? ` - ${item.summary}` : ''}`)
+      .join('\n');
+
+    const prompt = `Convert these current news headlines from India into engaging debate topics.
+
+Headlines:
+${headlineList}
+
+For each headline, generate a debate topic with:
+- title: A thought-provoking question that can be debated (max 100 chars)
+- description: Brief context about why this is relevant NOW (max 200 chars)
+- sideALabel: Clear position label (max 30 chars)
+- sideBLabel: Clear opposing position (max 30 chars)
+
+Rules:
+1. Topics must be in ENGLISH only
+2. Topics should be DEBATABLE - there must be valid arguments on both sides
+3. Topics should feel CURRENT and connected to the original news
+4. Avoid topics that are too politically sensitive or divisive
+5. Skip headlines that don't make good debate topics (report as skipped)
+
+Respond in JSON format:
+{
+  "topics": [
+    {
+      "originalIndex": 1,
+      "title": "Should...",
+      "description": "...",
+      "sideALabel": "...",
+      "sideBLabel": "...",
+      "skipped": false
+    },
+    ...
+  ]
+}`;
+
+    const messages = [
+      {
+        role: 'system' as const,
+        content: 'You are an expert at converting news headlines into balanced, engaging debate topics. Generate topics that will spark healthy discussion. Always respond with valid JSON.',
+      },
+      {
+        role: 'user' as const,
+        content: prompt,
+      },
+    ];
+
+    try {
+      let content: string | null = null;
+
+      // Try Groq first (free)
+      if (hasGroq && groq) {
+        const response = await groq.chat.completions.create({
+          model: GROQ_MODEL,
+          messages,
+          response_format: { type: 'json_object' },
+          temperature: 0.7,
+          max_tokens: 2000,
+        });
+        content = response.choices[0]?.message?.content;
+      } else if (hasOpenAI && openai) {
+        const response = await openai.chat.completions.create({
+          model: 'gpt-4-turbo-preview',
+          messages,
+          response_format: { type: 'json_object' },
+          temperature: 0.7,
+          max_tokens: 2000,
+        });
+        content = response.choices[0]?.message?.content;
+      }
+
+      if (content) {
+        const parsed = JSON.parse(content);
+        const topics = parsed.topics || [];
+
+        for (const topic of topics) {
+          if (topic.skipped) continue;
+
+          const originalItem = batch[topic.originalIndex - 1];
+          if (!originalItem) continue;
+
+          // Check for duplicate topics
+          const existing = await prisma.topicQueue.findFirst({
+            where: { title: topic.title },
+          });
+
+          if (existing) continue;
+
+          // Calculate expiry (24-48 hours based on trending score)
+          const baseExpiry = 24 * 60 * 60 * 1000; // 24 hours
+          const expiryBonus = originalItem.trendingScore * 12 * 60 * 60 * 1000; // Up to 12 extra hours
+          const expiresAt = new Date(Date.now() + baseExpiry + expiryBonus);
+
+          // Store the topic
+          await prisma.topicQueue.create({
+            data: {
+              regionId: originalItem.regionId || (await getDefaultRegionId()),
+              categoryId: originalItem.categoryId || (await getDefaultCategoryId()),
+              title: topic.title,
+              description: topic.description,
+              sideALabel: topic.sideALabel || 'In Favor',
+              sideBLabel: topic.sideBLabel || 'Against',
+              sourceHeadline: originalItem.headline,
+              sourceUrl: originalItem.sourceUrl,
+              trendingScore: originalItem.trendingScore,
+              expiresAt,
+            },
+          });
+
+          converted++;
+          console.log(`  ✓ Created topic: ${topic.title}`);
+        }
+      }
+
+      // Small delay between batches to avoid rate limits
+      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch (error) {
+      console.error('Error converting trending batch:', error);
+    }
+  }
+
+  console.log(`✅ Converted ${converted} trending items to debate topics`);
+  return converted;
+}
+
+/**
+ * Get default region ID (National)
+ */
+async function getDefaultRegionId(): Promise<string> {
+  const region = await prisma.region.findFirst({
+    where: { name: 'National' },
+  });
+  if (!region) {
+    const any = await prisma.region.findFirst();
+    return any?.id || '';
+  }
+  return region.id;
+}
+
+/**
+ * Get default category ID (Politics as default)
+ */
+async function getDefaultCategoryId(): Promise<string> {
+  const category = await prisma.category.findFirst({
+    where: { name: 'Politics' },
+  });
+  if (!category) {
+    const any = await prisma.category.findFirst();
+    return any?.id || '';
+  }
+  return category.id;
+}
+
+/**
+ * Main function to generate topics from trending data
+ * This should be called by the scheduler
+ */
+export async function generateTopicsFromTrending(): Promise<{
+  fetched: number;
+  converted: number;
+}> {
+  // Import here to avoid circular dependency
+  const { 
+    fetchTrendingItems, 
+    storeTrendingItems, 
+    getUnprocessedTrendingItems,
+    markTrendingItemsProcessed,
+    cleanupExpiredTopics,
+    cleanupExpiredTrendingItems,
+  } = await import('./trending.js');
+
+  // 1. Cleanup expired data first
+  await cleanupExpiredTrendingItems();
+  await cleanupExpiredTopics();
+
+  // 2. Fetch new trending items
+  const items = await fetchTrendingItems();
+  const stored = await storeTrendingItems(items);
+
+  // 3. Get unprocessed items
+  const unprocessed = await getUnprocessedTrendingItems(20);
+
+  // 4. Convert to topics
+  const converted = await convertTrendingToTopics(unprocessed);
+
+  // 5. Mark as processed
+  if (unprocessed.length > 0) {
+    await markTrendingItemsProcessed(unprocessed.map(i => i.id));
+  }
+
+  return {
+    fetched: items.length,
+    converted,
+  };
 }

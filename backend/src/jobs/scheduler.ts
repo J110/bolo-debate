@@ -6,7 +6,8 @@ import {
   sendEndingSoonWarning,
   ensureMinimumRoomsPerRegion,
 } from '../services/room.js';
-import { generateBotMessage, batchGenerateTopics } from '../services/ai.js';
+import { generateBotMessage, generateTopicsFromTrending } from '../services/ai.js';
+import { refreshTrendingData, cleanupExpiredTopics, cleanupExpiredTrendingItems } from '../services/trending.js';
 import { broadcastToRoom } from '../websocket/index.js';
 
 export function startScheduler(): void {
@@ -50,39 +51,63 @@ export function startScheduler(): void {
     }
   });
 
-  // Batch generate topics every hour (at minute 0)
-  cron.schedule('0 * * * *', async () => {
+  // ============================================
+  // TRENDING TOPICS JOBS
+  // ============================================
+
+  // Refresh trending data every 2 hours (fetch new news)
+  cron.schedule('0 */2 * * *', async () => {
     try {
-      console.log('🎯 Running hourly topic batch generation...');
-      await batchGenerateTopics(10);
+      console.log('📰 Starting scheduled trending data refresh...');
+      const result = await refreshTrendingData();
+      console.log(`📰 Trending refresh: ${result.fetched} fetched, ${result.stored} stored`);
     } catch (error) {
-      console.error('Error in batch topic generation:', error);
+      console.error('Error in trending data refresh job:', error);
     }
   });
 
-  // Clean up old used topics weekly (Sunday at 3am)
-  cron.schedule('0 3 * * 0', async () => {
+  // Generate debate topics from trending items every hour
+  cron.schedule('30 * * * *', async () => {
     try {
-      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-      const deleted = await prisma.topicQueue.deleteMany({
-        where: {
-          isUsed: true,
-          usedAt: { lte: sevenDaysAgo },
-        },
-      });
-      console.log(`🗑️ Cleaned up ${deleted.count} old used topics`);
+      console.log('🔄 Starting scheduled topic generation from trending...');
+      const result = await generateTopicsFromTrending();
+      console.log(`🔄 Topic generation: ${result.fetched} items, ${result.converted} topics created`);
     } catch (error) {
-      console.error('Error cleaning up old topics:', error);
+      console.error('Error in trending topic generation job:', error);
     }
   });
+
+  // Clean up expired topics and trending items every 6 hours
+  cron.schedule('0 */6 * * *', async () => {
+    try {
+      console.log('🗑️ Starting scheduled cleanup...');
+      const expiredTopics = await cleanupExpiredTopics();
+      const expiredTrending = await cleanupExpiredTrendingItems();
+      console.log(`🗑️ Cleanup: ${expiredTopics} topics, ${expiredTrending} trending items removed`);
+    } catch (error) {
+      console.error('Error in cleanup job:', error);
+    }
+  });
+
+  // Run initial trending fetch on startup (after 30 seconds to let the server stabilize)
+  setTimeout(async () => {
+    try {
+      console.log('📰 Running initial trending data fetch...');
+      const result = await generateTopicsFromTrending();
+      console.log(`📰 Initial fetch: ${result.fetched} items, ${result.converted} topics created`);
+    } catch (error) {
+      console.error('Error in initial trending fetch:', error);
+    }
+  }, 30000);
 
   console.log('Scheduler started with the following jobs:');
   console.log('  - Room lifecycle check: every 30 seconds');
   console.log('  - Ending soon warnings: every minute');
   console.log('  - Ensure minimum rooms: every 5 minutes');
   console.log('  - Bot suggestions: every 3 minutes');
-  console.log('  - Batch topic generation: every hour');
-  console.log('  - Topic cleanup: weekly');
+  console.log('  - Trending data refresh: every 2 hours');
+  console.log('  - Topic generation from trending: every hour');
+  console.log('  - Cleanup expired topics: every 6 hours');
 }
 
 async function sendBotSuggestions(): Promise<void> {
