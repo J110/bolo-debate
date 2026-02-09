@@ -404,12 +404,12 @@ $shareUrl''';
                     backgroundColor: AppColors.warning.withOpacity(0.1),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                )
-              else
-                IconButton(
-                  icon: const Icon(Icons.more_vert, color: Colors.white),
-                  onPressed: () => _showOptionsMenu(room),
                 ),
+              // Always show menu button
+              IconButton(
+                icon: const Icon(Icons.more_vert, color: Colors.white),
+                onPressed: () => _showOptionsMenu(room),
+              ),
             ],
           ),
           

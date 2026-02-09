@@ -1,11 +1,11 @@
 {
-    "name": "bolo_debate",
-    "short_name": "bolo_debate",
+    "name": "Bolo - Voice Debates",
+    "short_name": "Bolo",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0D1117",
+    "theme_color": "#14B8A6",
+    "description": "Join live voice debates on trending topics.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

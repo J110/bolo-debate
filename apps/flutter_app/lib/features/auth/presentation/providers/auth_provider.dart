@@ -92,10 +92,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
         await _storage.saveUserData(data['user']);
         state = AuthState(user: User.fromJson(data['user']));
       } else {
-        state = state.copyWith(isLoading: false, error: response['error']);
+        final errorMsg = response['error'] ?? response['message'] ?? 'Login failed';
+        state = state.copyWith(isLoading: false, error: errorMsg);
       }
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      // Extract cleaner error message
+      String errorMsg = 'Connection error. Please try again.';
+      if (e.toString().contains('404')) {
+        errorMsg = 'User not found';
+      } else if (e.toString().contains('401') || e.toString().contains('403')) {
+        errorMsg = 'Invalid credentials';
+      } else if (e.toString().contains('timeout') || e.toString().contains('connection')) {
+        errorMsg = 'Server is starting up. Please wait and try again.';
+      }
+      state = state.copyWith(isLoading: false, error: errorMsg);
     }
   }
 
