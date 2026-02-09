@@ -6,307 +6,256 @@ import 'package:bolo_debate/shared/models/room_model.dart';
 
 // ============================================================================
 // TOPIC-BASED ILLUSTRATION SYSTEM
-// Uses 3D rendered and illustrated artistic images from Unsplash
-// These have an illustrated/artistic quality rather than photographic
+// Uses Pixabay illustrations with colored overlay for cohesive branding
 // ============================================================================
 
-/// Topic keywords mapped to artistic/illustrated style images
+/// Color themes for overlay - creates uniform look across all images
+class _OverlayTheme {
+  final Color primary;
+  final Color secondary;
+  final double opacity;
+  
+  const _OverlayTheme({
+    required this.primary,
+    required this.secondary,
+    this.opacity = 0.55,
+  });
+}
+
+/// Diverse color themes that rotate based on room hash
+const List<_OverlayTheme> _colorThemes = [
+  _OverlayTheme(primary: Color(0xFF6366F1), secondary: Color(0xFF8B5CF6)), // Indigo-Purple
+  _OverlayTheme(primary: Color(0xFF14B8A6), secondary: Color(0xFF06B6D4)), // Teal-Cyan
+  _OverlayTheme(primary: Color(0xFFF59E0B), secondary: Color(0xFFEF4444)), // Amber-Red
+  _OverlayTheme(primary: Color(0xFF10B981), secondary: Color(0xFF34D399)), // Emerald
+  _OverlayTheme(primary: Color(0xFFEC4899), secondary: Color(0xFFF472B6)), // Pink
+  _OverlayTheme(primary: Color(0xFF3B82F6), secondary: Color(0xFF60A5FA)), // Blue
+  _OverlayTheme(primary: Color(0xFF8B5CF6), secondary: Color(0xFFA78BFA)), // Violet
+  _OverlayTheme(primary: Color(0xFFEF4444), secondary: Color(0xFFF87171)), // Red
+  _OverlayTheme(primary: Color(0xFF06B6D4), secondary: Color(0xFF22D3EE)), // Cyan
+  _OverlayTheme(primary: Color(0xFFF97316), secondary: Color(0xFFFB923C)), // Orange
+];
+
+/// Get color theme based on room ID for consistent but diverse colors
+_OverlayTheme _getOverlayTheme(String roomId) {
+  final hash = roomId.hashCode.abs();
+  return _colorThemes[hash % _colorThemes.length];
+}
+
+/// Extract most relevant keyword from room title
+String _extractKeyword(String title) {
+  final lowerTitle = title.toLowerCase();
+  
+  // Priority keywords to search terms
+  const priorityKeywords = {
+    'cricket': 'cricket player',
+    'ipl': 'cricket',
+    'football': 'football soccer',
+    'basketball': 'basketball',
+    'sports': 'sports athlete',
+    'ai': 'artificial intelligence robot',
+    'robot': 'robot',
+    'social media': 'social media phone',
+    'influencer': 'influencer phone',
+    'cyber': 'cybersecurity hacker',
+    'bitcoin': 'bitcoin cryptocurrency',
+    'crypto': 'cryptocurrency',
+    'election': 'election voting',
+    'vote': 'voting ballot',
+    'democracy': 'democracy',
+    'parliament': 'parliament government',
+    'law': 'law justice',
+    'court': 'court justice',
+    'police': 'police officer',
+    'military': 'military soldier',
+    'war': 'war conflict',
+    'stock': 'stock market chart',
+    'market': 'stock market',
+    'economy': 'economy growth',
+    'tax': 'tax money',
+    'manufacturing': 'factory manufacturing',
+    'energy': 'energy power',
+    'movie': 'movie cinema',
+    'film': 'cinema film',
+    'music': 'music concert',
+    'marriage': 'wedding couple',
+    'education': 'education school',
+    'health': 'health medical',
+    'climate': 'climate environment',
+    'farmer': 'farmer agriculture',
+    'women': 'women empowerment',
+    'security': 'security shield',
+    'privacy': 'privacy security',
+    'hate': 'speech bubble',
+    'speech': 'speech microphone',
+  };
+  
+  // Check for priority keywords
+  for (final entry in priorityKeywords.entries) {
+    if (lowerTitle.contains(entry.key)) {
+      return entry.key;
+    }
+  }
+  
+  // Return generic term based on category will be handled by fallback
+  return 'discussion';
+}
+
+/// Topic keywords mapped to curated Pixabay illustration URLs
+/// These are vector illustrations that work well with the duotone overlay
 const Map<String, List<String>> _topicIllustrations = {
-  // Sports - 3D/Artistic renders
-  'basketball': [
-    'https://images.unsplash.com/photo-1608245449230-4ac19066d2d0?w=400&h=200&fit=crop', // 3D basketball
-    'https://images.unsplash.com/photo-1559692048-79a3f837883d?w=400&h=200&fit=crop', // Artistic court
-  ],
-  'nba': [
-    'https://images.unsplash.com/photo-1608245449230-4ac19066d2d0?w=400&h=200&fit=crop',
-  ],
+  // Sports
   'cricket': [
-    'https://images.unsplash.com/photo-1531415074968-036ba1b575da?w=400&h=200&fit=crop',
+    'https://cdn.pixabay.com/photo/2021/11/18/08/01/virat-kohli-6806366_640.png',
+    'https://cdn.pixabay.com/photo/2013/07/13/10/51/football-157930_640.png',
   ],
-  'ipl': [
-    'https://images.unsplash.com/photo-1531415074968-036ba1b575da?w=400&h=200&fit=crop',
+  'sports': [
+    'https://cdn.pixabay.com/photo/2013/07/13/10/51/football-157930_640.png',
+    'https://cdn.pixabay.com/photo/2014/04/02/10/45/soccer-304620_640.png',
   ],
   'football': [
-    'https://images.unsplash.com/photo-1552318965-6e6be7484ada?w=400&h=200&fit=crop', // Artistic football
+    'https://cdn.pixabay.com/photo/2013/07/13/10/51/football-157930_640.png',
+    'https://cdn.pixabay.com/photo/2014/04/02/10/45/soccer-304620_640.png',
   ],
-  'soccer': [
-    'https://images.unsplash.com/photo-1552318965-6e6be7484ada?w=400&h=200&fit=crop',
-  ],
-  
-  // Space - Artistic/3D
-  'mars': [
-    'https://images.unsplash.com/photo-1614732414444-096e5f1122d5?w=400&h=200&fit=crop', // Artistic Mars
-    'https://images.unsplash.com/photo-1614313913007-2b4ae8ce32d6?w=400&h=200&fit=crop', // 3D planet
-  ],
-  'space': [
-    'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=400&h=200&fit=crop', // Nebula art
-    'https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=400&h=200&fit=crop', // Space art
-  ],
-  'astronaut': [
-    'https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?w=400&h=200&fit=crop', // Artistic astronaut
-    'https://images.unsplash.com/photo-1614313913007-2b4ae8ce32d6?w=400&h=200&fit=crop',
-  ],
-  'moon': [
-    'https://images.unsplash.com/photo-1532693322450-2cb5c511067d?w=400&h=200&fit=crop', // Artistic moon
-  ],
-  'elon': [
-    'https://images.unsplash.com/photo-1457364559154-aa2644600ebb?w=400&h=200&fit=crop', // Rocket art
-    'https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?w=400&h=200&fit=crop',
-  ],
-  'rocket': [
-    'https://images.unsplash.com/photo-1457364559154-aa2644600ebb?w=400&h=200&fit=crop',
+  'basketball': [
+    'https://cdn.pixabay.com/photo/2014/04/03/10/32/basketball-311553_640.png',
   ],
   
-  // AI & Technology - 3D/Abstract
+  // Technology & AI
   'ai': [
-    'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=400&h=200&fit=crop', // AI art
-    'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=400&h=200&fit=crop', // Robot face art
-  ],
-  'artificial intelligence': [
-    'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=400&h=200&fit=crop',
+    'https://cdn.pixabay.com/photo/2019/03/21/15/51/chatbot-4071274_640.png',
+    'https://cdn.pixabay.com/photo/2018/09/27/09/22/artificial-intelligence-3706562_640.png',
   ],
   'robot': [
-    'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=400&h=200&fit=crop',
-    'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=400&h=200&fit=crop', // White robot
+    'https://cdn.pixabay.com/photo/2019/03/21/15/51/chatbot-4071274_640.png',
   ],
-  'chatgpt': [
-    'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=400&h=200&fit=crop',
-  ],
-  'tech': [
-    'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=400&h=200&fit=crop', // Abstract tech
-  ],
-  
-  // Social Media - Artistic/Abstract
-  'social media': [
-    'https://images.unsplash.com/photo-1611162616305-c69b3fa7fbe0?w=400&h=200&fit=crop', // Social icons art
-    'https://images.unsplash.com/photo-1611162618071-b39a2ec055fb?w=400&h=200&fit=crop',
-  ],
-  'influencer': [
-    'https://images.unsplash.com/photo-1611162616305-c69b3fa7fbe0?w=400&h=200&fit=crop',
-  ],
-  'twitter': [
-    'https://images.unsplash.com/photo-1611605698335-8b1569810432?w=400&h=200&fit=crop', // Twitter 3D
-  ],
-  'instagram': [
-    'https://images.unsplash.com/photo-1611162618071-b39a2ec055fb?w=400&h=200&fit=crop', // Instagram 3D
-  ],
-  'youtube': [
-    'https://images.unsplash.com/photo-1611162616475-46b635cb6868?w=400&h=200&fit=crop', // YouTube 3D
-  ],
-  
-  // Crypto - 3D renders
-  'crypto': [
-    'https://images.unsplash.com/photo-1621761191319-c6fb62004040?w=400&h=200&fit=crop', // 3D crypto
-    'https://images.unsplash.com/photo-1622630998477-20aa696ecb05?w=400&h=200&fit=crop',
-  ],
-  'bitcoin': [
-    'https://images.unsplash.com/photo-1622630998477-20aa696ecb05?w=400&h=200&fit=crop', // 3D Bitcoin
-    'https://images.unsplash.com/photo-1621761191319-c6fb62004040?w=400&h=200&fit=crop',
-  ],
-  'blockchain': [
-    'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=400&h=200&fit=crop', // Blockchain art
-  ],
-  
-  // Finance - Abstract/Artistic
-  'stock': [
-    'https://images.unsplash.com/photo-1642790106117-e829e14a795f?w=400&h=200&fit=crop', // Abstract chart
-    'https://images.unsplash.com/photo-1535320903710-d993d3d77d29?w=400&h=200&fit=crop',
-  ],
-  'market': [
-    'https://images.unsplash.com/photo-1642790106117-e829e14a795f?w=400&h=200&fit=crop',
-  ],
-  'economy': [
-    'https://images.unsplash.com/photo-1535320903710-d993d3d77d29?w=400&h=200&fit=crop', // Abstract economy
-  ],
-  'investment': [
-    'https://images.unsplash.com/photo-1633158829585-23ba8f7c8caf?w=400&h=200&fit=crop', // Growth art
-  ],
-  'money': [
-    'https://images.unsplash.com/photo-1633158829585-23ba8f7c8caf?w=400&h=200&fit=crop',
-  ],
-  'bank': [
-    'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=400&h=200&fit=crop', // Abstract finance
-  ],
-  
-  // Energy - Artistic
-  'energy': [
-    'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=400&h=200&fit=crop', // Power lines art
-    'https://images.unsplash.com/photo-1509391366360-2e959784a276?w=400&h=200&fit=crop', // Solar art
-  ],
-  'solar': [
-    'https://images.unsplash.com/photo-1509391366360-2e959784a276?w=400&h=200&fit=crop',
-  ],
-  'renewable': [
-    'https://images.unsplash.com/photo-1466611653911-95081537e5b7?w=400&h=200&fit=crop', // Wind art
-  ],
-  'power': [
-    'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=400&h=200&fit=crop',
-  ],
-  
-  // Politics - Abstract/Artistic
-  'government': [
-    'https://images.unsplash.com/photo-1569389397653-c04fe624e663?w=400&h=200&fit=crop', // Abstract gov
-  ],
-  'parliament': [
-    'https://images.unsplash.com/photo-1569389397653-c04fe624e663?w=400&h=200&fit=crop',
-  ],
-  'election': [
-    'https://images.unsplash.com/photo-1598518619776-eae3f8a34eac?w=400&h=200&fit=crop', // Vote art
-  ],
-  'vote': [
-    'https://images.unsplash.com/photo-1598518619776-eae3f8a34eac?w=400&h=200&fit=crop',
-  ],
-  'democracy': [
-    'https://images.unsplash.com/photo-1569389397653-c04fe624e663?w=400&h=200&fit=crop',
-  ],
-  'law': [
-    'https://images.unsplash.com/photo-1589994965851-a8f479c573a9?w=400&h=200&fit=crop', // Justice art
-  ],
-  'court': [
-    'https://images.unsplash.com/photo-1589994965851-a8f479c573a9?w=400&h=200&fit=crop',
-  ],
-  'justice': [
-    'https://images.unsplash.com/photo-1589994965851-a8f479c573a9?w=400&h=200&fit=crop',
-  ],
-  'police': [
-    'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=400&h=200&fit=crop', // Abstract law
+  'cyber': [
+    'https://cdn.pixabay.com/photo/2021/11/05/18/51/cybersecurity-6769298_640.png',
+    'https://cdn.pixabay.com/photo/2017/05/10/12/41/hacker-2300772_640.png',
   ],
   'security': [
-    'https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=400&h=200&fit=crop', // Security art
-  ],
-  'hate': [
-    'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=400&h=200&fit=crop', // Speech art
+    'https://cdn.pixabay.com/photo/2012/04/14/16/26/shield-34407_640.png',
+    'https://cdn.pixabay.com/photo/2021/11/05/18/51/cybersecurity-6769298_640.png',
   ],
   
-  // Entertainment - Artistic
-  'movie': [
-    'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400&h=200&fit=crop', // Cinema art
-    'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=400&h=200&fit=crop',
+  // Social Media
+  'social media': [
+    'https://cdn.pixabay.com/photo/2016/11/23/14/49/building-1853330_640.png',
+    'https://cdn.pixabay.com/photo/2016/02/01/12/19/background-1173540_640.png',
   ],
-  'film': [
-    'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=400&h=200&fit=crop', // Film reel art
-  ],
-  'cinema': [
-    'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400&h=200&fit=crop',
-  ],
-  'bollywood': [
-    'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400&h=200&fit=crop',
-  ],
-  'music': [
-    'https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=400&h=200&fit=crop', // Music art
-    'https://images.unsplash.com/photo-1507838153414-b4b713384a76?w=400&h=200&fit=crop',
-  ],
-  'concert': [
-    'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=400&h=200&fit=crop', // Concert art
-  ],
-  'gaming': [
-    'https://images.unsplash.com/photo-1612287230202-1ff1d85d1bdf?w=400&h=200&fit=crop', // Gaming art
-    'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=400&h=200&fit=crop',
-  ],
-  'game': [
-    'https://images.unsplash.com/photo-1612287230202-1ff1d85d1bdf?w=400&h=200&fit=crop',
-  ],
-  'netflix': [
-    'https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400&h=200&fit=crop', // Streaming art
-  ],
-  'ott': [
-    'https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400&h=200&fit=crop',
+  'influencer': [
+    'https://cdn.pixabay.com/photo/2016/11/23/14/49/building-1853330_640.png',
   ],
   
-  // Environment - Artistic
-  'climate': [
-    'https://images.unsplash.com/photo-1569163139599-0f4517e36f51?w=400&h=200&fit=crop', // Climate art
-  ],
-  'environment': [
-    'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&h=200&fit=crop', // Nature art
-  ],
-  'pollution': [
-    'https://images.unsplash.com/photo-1569163139599-0f4517e36f51?w=400&h=200&fit=crop',
-  ],
-  
-  // Education - Artistic
-  'education': [
-    'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=400&h=200&fit=crop', // Books art
-    'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=400&h=200&fit=crop',
-  ],
-  'school': [
-    'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=400&h=200&fit=crop',
-  ],
-  'university': [
-    'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=400&h=200&fit=crop', // Graduation art
-  ],
-  
-  // Health - Artistic
-  'health': [
-    'https://images.unsplash.com/photo-1505751172876-fa1923c5c528?w=400&h=200&fit=crop', // Health art
-  ],
-  'hospital': [
-    'https://images.unsplash.com/photo-1505751172876-fa1923c5c528?w=400&h=200&fit=crop',
-  ],
-  'doctor': [
-    'https://images.unsplash.com/photo-1505751172876-fa1923c5c528?w=400&h=200&fit=crop',
-  ],
-  'covid': [
-    'https://images.unsplash.com/photo-1584483766114-2cea6facdf57?w=400&h=200&fit=crop', // Virus art
-  ],
-  'vaccine': [
-    'https://images.unsplash.com/photo-1615631648086-325025c9e51e?w=400&h=200&fit=crop', // Vaccine art
-  ],
-  
-  // Social - Artistic
-  'women': [
-    'https://images.unsplash.com/photo-1489924309280-8791d2dfc2cd?w=400&h=200&fit=crop', // Women art
-  ],
-  'farmer': [
-    'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=400&h=200&fit=crop', // Farm art
-  ],
-  'agriculture': [
-    'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=400&h=200&fit=crop',
-  ],
-  
-  // Business - Artistic
-  'startup': [
-    'https://images.unsplash.com/photo-1559136555-9303baea8ebd?w=400&h=200&fit=crop', // Startup art
-  ],
+  // Business & Economy
   'business': [
-    'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=200&fit=crop', // Business art
+    'https://cdn.pixabay.com/photo/2018/05/30/09/14/city-3440644_640.png',
+    'https://cdn.pixabay.com/photo/2017/01/31/20/36/chart-2027905_640.png',
+  ],
+  'economy': [
+    'https://cdn.pixabay.com/photo/2017/01/31/20/36/chart-2027905_640.png',
+  ],
+  'stock': [
+    'https://cdn.pixabay.com/photo/2017/01/31/20/36/chart-2027905_640.png',
   ],
   'manufacturing': [
-    'https://images.unsplash.com/photo-1565043589221-1a6fd9ae45c7?w=400&h=200&fit=crop', // Factory art
+    'https://cdn.pixabay.com/photo/2018/05/30/09/14/city-3440644_640.png',
+  ],
+  'money': [
+    'https://cdn.pixabay.com/photo/2017/09/07/08/54/money-2724241_640.png',
+  ],
+  
+  // Politics & Government
+  'government': [
+    'https://cdn.pixabay.com/photo/2016/10/28/12/18/usa-1778534_640.png',
+  ],
+  'election': [
+    'https://cdn.pixabay.com/photo/2016/10/28/12/18/usa-1778534_640.png',
+  ],
+  'law': [
+    'https://cdn.pixabay.com/photo/2017/01/31/17/34/balance-2025786_640.png',
+  ],
+  'police': [
+    'https://cdn.pixabay.com/photo/2012/04/14/16/26/shield-34407_640.png',
+  ],
+  
+  // Marriage & Relationships
+  'marriage': [
+    'https://cdn.pixabay.com/photo/2024/01/03/06/57/pair-8484505_640.png',
+    'https://cdn.pixabay.com/photo/2017/10/26/17/50/undraw-bride-702134_640.png',
+  ],
+  'wedding': [
+    'https://cdn.pixabay.com/photo/2024/01/03/06/57/pair-8484505_640.png',
+  ],
+  'couple': [
+    'https://cdn.pixabay.com/photo/2024/01/03/06/57/pair-8484505_640.png',
+  ],
+  
+  // Environment
+  'climate': [
+    'https://cdn.pixabay.com/photo/2016/11/29/09/32/climate-change-1868772_640.png',
+  ],
+  'environment': [
+    'https://cdn.pixabay.com/photo/2016/11/29/09/32/climate-change-1868772_640.png',
+  ],
+  'energy': [
+    'https://cdn.pixabay.com/photo/2017/09/12/13/21/building-2742009_640.png',
+  ],
+  
+  // Education
+  'education': [
+    'https://cdn.pixabay.com/photo/2018/03/21/07/16/learning-3245793_640.png',
+  ],
+  'school': [
+    'https://cdn.pixabay.com/photo/2018/03/21/07/16/learning-3245793_640.png',
+  ],
+  
+  // Health
+  'health': [
+    'https://cdn.pixabay.com/photo/2017/10/04/09/56/physician-2816640_640.png',
+  ],
+  'doctor': [
+    'https://cdn.pixabay.com/photo/2017/10/04/09/56/physician-2816640_640.png',
+  ],
+  
+  // Entertainment
+  'movie': [
+    'https://cdn.pixabay.com/photo/2017/11/24/10/43/admission-2974645_640.png',
+  ],
+  'music': [
+    'https://cdn.pixabay.com/photo/2014/04/05/11/38/music-316587_640.png',
+  ],
+  
+  // Speech & Communication
+  'speech': [
+    'https://cdn.pixabay.com/photo/2013/07/12/18/54/bubble-153710_640.png',
+  ],
+  'hate': [
+    'https://cdn.pixabay.com/photo/2013/07/12/18/54/bubble-153710_640.png',
   ],
 };
 
-/// Category fallback illustrations (artistic style)
+/// Category fallback illustrations (Pixabay vector style)
 const Map<String, List<String>> _categoryFallbackIllustrations = {
   'Politics': [
-    'https://images.unsplash.com/photo-1569389397653-c04fe624e663?w=400&h=200&fit=crop',
-    'https://images.unsplash.com/photo-1598518619776-eae3f8a34eac?w=400&h=200&fit=crop',
-    'https://images.unsplash.com/photo-1589994965851-a8f479c573a9?w=400&h=200&fit=crop',
-    'https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=400&h=200&fit=crop',
+    'https://cdn.pixabay.com/photo/2016/10/28/12/18/usa-1778534_640.png',
+    'https://cdn.pixabay.com/photo/2017/01/31/17/34/balance-2025786_640.png',
   ],
   'Technology': [
-    'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=400&h=200&fit=crop',
-    'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=400&h=200&fit=crop',
-    'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=400&h=200&fit=crop',
-    'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=400&h=200&fit=crop',
+    'https://cdn.pixabay.com/photo/2019/03/21/15/51/chatbot-4071274_640.png',
+    'https://cdn.pixabay.com/photo/2018/09/27/09/22/artificial-intelligence-3706562_640.png',
   ],
   'Business': [
-    'https://images.unsplash.com/photo-1642790106117-e829e14a795f?w=400&h=200&fit=crop',
-    'https://images.unsplash.com/photo-1633158829585-23ba8f7c8caf?w=400&h=200&fit=crop',
-    'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=200&fit=crop',
-    'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=400&h=200&fit=crop',
+    'https://cdn.pixabay.com/photo/2018/05/30/09/14/city-3440644_640.png',
+    'https://cdn.pixabay.com/photo/2017/01/31/20/36/chart-2027905_640.png',
   ],
   'Sports': [
-    'https://images.unsplash.com/photo-1608245449230-4ac19066d2d0?w=400&h=200&fit=crop',
-    'https://images.unsplash.com/photo-1552318965-6e6be7484ada?w=400&h=200&fit=crop',
-    'https://images.unsplash.com/photo-1461896836934-eba62b1e38c1?w=400&h=200&fit=crop',
-    'https://images.unsplash.com/photo-1517649763962-0c623066013b?w=400&h=200&fit=crop',
+    'https://cdn.pixabay.com/photo/2013/07/13/10/51/football-157930_640.png',
+    'https://cdn.pixabay.com/photo/2014/04/02/10/45/soccer-304620_640.png',
   ],
   'Entertainment': [
-    'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400&h=200&fit=crop',
-    'https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=400&h=200&fit=crop',
-    'https://images.unsplash.com/photo-1612287230202-1ff1d85d1bdf?w=400&h=200&fit=crop',
-    'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=400&h=200&fit=crop',
+    'https://cdn.pixabay.com/photo/2017/11/24/10/43/admission-2974645_640.png',
+    'https://cdn.pixabay.com/photo/2014/04/05/11/38/music-316587_640.png',
   ],
 };
 
@@ -328,24 +277,6 @@ String _getImageUrl(Room room) {
       _categoryFallbackIllustrations['Technology']!;
   final index = room.id.hashCode.abs() % categoryImages.length;
   return categoryImages[index];
-}
-
-/// Get category-specific gradient for overlay
-List<Color> _getCategoryGradient(String categoryName) {
-  switch (categoryName) {
-    case 'Politics':
-      return [const Color(0xFFE53935), const Color(0xFFFF7043)];
-    case 'Technology':
-      return [const Color(0xFF1565C0), const Color(0xFF42A5F5)];
-    case 'Business':
-      return [const Color(0xFFF57C00), const Color(0xFFFFB74D)];
-    case 'Sports':
-      return [const Color(0xFF2E7D32), const Color(0xFF66BB6A)];
-    case 'Entertainment':
-      return [const Color(0xFF7B1FA2), const Color(0xFFBA68C8)];
-    default:
-      return [const Color(0xFF1565C0), const Color(0xFF42A5F5)];
-  }
 }
 
 class RoomCard extends StatelessWidget {
@@ -407,7 +338,7 @@ $shareUrl''';
   @override
   Widget build(BuildContext context) {
     final categoryColor = Color(int.parse(room.category.color.replaceFirst('#', '0xFF')));
-    final gradientColors = _getCategoryGradient(room.category.name);
+    final overlayTheme = _getOverlayTheme(room.id);
     
     return Card(
       elevation: 4,
@@ -421,21 +352,23 @@ $shareUrl''';
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image section - full coverage with relevant topic image
+            // Image section with duotone overlay for cohesive branding
             SizedBox(
               height: 120,
               width: double.infinity,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // Topic-relevant image
+                  // Base illustration image
                   CachedNetworkImage(
                     imageUrl: _getImageUrl(room),
                     fit: BoxFit.cover,
+                    color: Colors.white, // Will be tinted by blend mode
+                    colorBlendMode: BlendMode.modulate,
                     placeholder: (context, url) => Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: gradientColors,
+                          colors: [overlayTheme.primary, overlayTheme.secondary],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -450,23 +383,36 @@ $shareUrl''';
                     errorWidget: (context, url, error) => Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: gradientColors,
+                          colors: [overlayTheme.primary, overlayTheme.secondary],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
                       ),
                     ),
                   ),
-                  // Subtle gradient overlay for text readability
+                  // Duotone color overlay - creates uniform branded look
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          Colors.transparent,
-                          Colors.black.withOpacity(0.4),
+                          overlayTheme.primary.withOpacity(overlayTheme.opacity),
+                          overlayTheme.secondary.withOpacity(overlayTheme.opacity - 0.1),
                         ],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                  ),
+                  // Subtle vignette for depth
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: RadialGradient(
+                        center: Alignment.center,
+                        radius: 1.2,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.3),
+                        ],
                       ),
                     ),
                   ),
@@ -484,7 +430,7 @@ $shareUrl''';
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.black54,
+                          color: Colors.black38,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
