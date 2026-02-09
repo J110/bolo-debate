@@ -167,6 +167,40 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
                               ),
                             ),
                             
+                            // Audio connection status
+                            if (!_isLiveKitConnected)
+                              Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: Colors.orange.withOpacity(0.5)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    SizedBox(
+                                      width: 12,
+                                      height: 12,
+                                      child: _liveKitService.isConnecting
+                                          ? const CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.orange,
+                                            )
+                                          : const Icon(Icons.wifi_off, size: 12, color: Colors.orange),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      _liveKitService.isConnecting 
+                                          ? 'Connecting to audio...' 
+                                          : 'Audio unavailable - chat only',
+                                      style: const TextStyle(color: Colors.orange, fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            
                             // Participants grid
                             Expanded(
                               child: _buildParticipantsArea(roomState),
@@ -653,7 +687,26 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
                     
                     // Toggle LiveKit audio
                     if (_isLiveKitConnected) {
-                      _liveKitService.toggleMicrophone();
+                      _liveKitService.toggleMicrophone().then((success) {
+                        if (!success && mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(_liveKitService.error ?? 'Failed to enable microphone'),
+                              backgroundColor: Colors.red,
+                              duration: const Duration(seconds: 3),
+                            ),
+                          );
+                        }
+                      });
+                    } else {
+                      // LiveKit not connected - try to reconnect
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Connecting to audio server...'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                      _connectToLiveKit();
                     }
                     // Also update backend state
                     ref.read(liveRoomProvider(widget.roomId).notifier).toggleMute(!isMuted);

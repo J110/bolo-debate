@@ -54,6 +54,8 @@ class LiveKitService extends ChangeNotifier {
     notifyListeners();
 
     try {
+      print('🔄 Connecting to LiveKit: ${AppConstants.livekitUrl}');
+      
       _room = Room(
         roomOptions: const RoomOptions(
           adaptiveStream: true,
@@ -74,6 +76,11 @@ class LiveKitService extends ChangeNotifier {
         connectOptions: const ConnectOptions(
           autoSubscribe: true,
         ),
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw Exception('Connection timeout - LiveKit server may be unavailable');
+        },
       );
 
       _localParticipant = _room!.localParticipant;
@@ -85,8 +92,9 @@ class LiveKitService extends ChangeNotifier {
       return true;
     } catch (e) {
       print('❌ LiveKit connection error: $e');
-      _error = e.toString();
+      _error = 'Audio server unavailable: ${e.toString().split(':').last.trim()}';
       _isConnecting = false;
+      _room = null;
       notifyListeners();
       return false;
     }
@@ -245,39 +253,73 @@ class LiveKitService extends ChangeNotifier {
     onParticipantsChanged?.call(remoteParticipants);
   }
 
-  Future<void> enableMicrophone() async {
-    if (!_isConnected || _room == null) return;
+  Future<bool> enableMicrophone() async {
+    if (_room == null) {
+      print('❌ Cannot enable mic: room is null');
+      _error = 'Not connected to room';
+      notifyListeners();
+      return false;
+    }
+    
+    if (!_isConnected) {
+      print('❌ Cannot enable mic: not connected');
+      _error = 'Not connected to LiveKit';
+      notifyListeners();
+      return false;
+    }
 
     try {
+      print('🎤 Requesting microphone access...');
+      
+      // On web, this will trigger the browser's permission dialog
+      // The LiveKit SDK handles getUserMedia internally
       await _room!.localParticipant?.setMicrophoneEnabled(true);
+      
+      // Verify the mic was actually enabled
+      final audioTracks = _room!.localParticipant?.audioTrackPublications;
+      if (audioTracks == null || audioTracks.isEmpty) {
+        print('⚠️ No audio track published after enabling mic');
+        // Try publishing a new audio track
+        await _room!.localParticipant?.publishAudioTrack(
+          await LocalAudioTrack.create(const AudioCaptureOptions()),
+        );
+      }
+      
       _isMuted = false;
-      print('🎤 Microphone enabled');
+      _error = null;
+      print('✅ Microphone enabled successfully');
       notifyListeners();
+      return true;
     } catch (e) {
       print('❌ Error enabling microphone: $e');
-      _error = 'Failed to enable microphone: $e';
+      _error = 'Microphone access denied or unavailable';
+      _isMuted = true;
       notifyListeners();
+      return false;
     }
   }
 
-  Future<void> disableMicrophone() async {
-    if (!_isConnected || _room == null) return;
+  Future<bool> disableMicrophone() async {
+    if (!_isConnected || _room == null) return false;
 
     try {
       await _room!.localParticipant?.setMicrophoneEnabled(false);
       _isMuted = true;
       print('🔇 Microphone disabled');
       notifyListeners();
+      return true;
     } catch (e) {
       print('❌ Error disabling microphone: $e');
+      return false;
     }
   }
 
-  Future<void> toggleMicrophone() async {
+  Future<bool> toggleMicrophone() async {
     if (_isMuted) {
-      await enableMicrophone();
+      return await enableMicrophone();
     } else {
       await disableMicrophone();
+      return true;
     }
   }
 
