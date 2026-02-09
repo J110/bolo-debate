@@ -1,7 +1,7 @@
 import { prisma } from '../config/database.js';
 import { redis, REDIS_KEYS } from '../config/redis.js';
 import { broadcastToRoom } from '../websocket/index.js';
-import { generateDebateTopics, generateDebateSuggestions, generateSubtopics } from './ai.js';
+import { generateDebateTopics, generateDebateSuggestions, generateSubtopics, translateTopicToHindi } from './ai.js';
 
 const ROOM_DURATION_MS = 30 * 60 * 1000; // 30 minutes
 const MIN_LIVE_ROOMS_PER_REGION = 1; // At least 1 live room per region
@@ -256,7 +256,13 @@ async function createStaggeredRooms(
       const topics = await generateDebateTopics(regionId, category.id, 1);
       
       if (topics.length > 0) {
-        const topic = topics[0];
+        let topic = topics[0];
+        
+        // Translate to Hindi if room language is Hindi
+        if (language === 'Hindi') {
+          const translated = await translateTopicToHindi(topic);
+          topic = { ...topic, ...translated };
+        }
         
         // Stagger start times: base offset per region + room index offset
         // Region 0: 3 min ago, Region 1: 6 min ago, Region 2: 9 min ago, etc.
@@ -304,7 +310,13 @@ async function createStaggeredRooms(
       const topics = await generateDebateTopics(regionId, category.id, 1);
       
       if (topics.length > 0) {
-        const topic = topics[0];
+        let topic = topics[0];
+        
+        // Translate to Hindi if room language is Hindi
+        if (language === 'Hindi') {
+          const translated = await translateTopicToHindi(topic);
+          topic = { ...topic, ...translated };
+        }
         
         // Stagger scheduled times: base offset per region + room index offset
         // Region 0: in 3 min, Region 1: in 6 min, Region 2: in 9 min, etc.

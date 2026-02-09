@@ -1062,3 +1062,90 @@ export async function generateTopicsFromTrending(): Promise<{
     converted,
   };
 }
+
+/**
+ * Translate a topic to Hindi
+ * Used when creating Hindi-language rooms
+ */
+export async function translateTopicToHindi(topic: {
+  title: string;
+  description: string;
+  sideALabel: string;
+  sideBLabel: string;
+}): Promise<{
+  title: string;
+  description: string;
+  sideALabel: string;
+  sideBLabel: string;
+}> {
+  // If no AI provider, return original (English)
+  if (!hasGroq && !hasOpenAI) {
+    return topic;
+  }
+
+  const prompt = `Translate this debate topic to Hindi. Keep it natural and conversational Hindi (Hinglish is okay for complex terms).
+
+English:
+- Title: ${topic.title}
+- Description: ${topic.description}
+- Side A: ${topic.sideALabel}
+- Side B: ${topic.sideBLabel}
+
+Translate to Hindi and respond in JSON format:
+{
+  "title": "Hindi title here",
+  "description": "Hindi description here", 
+  "sideALabel": "Hindi side A label",
+  "sideBLabel": "Hindi side B label"
+}`;
+
+  const messages = [
+    {
+      role: 'system' as const,
+      content: 'You are a Hindi translator. Translate English to natural Hindi/Hinglish. Keep translations concise. Always respond with valid JSON.',
+    },
+    {
+      role: 'user' as const,
+      content: prompt,
+    },
+  ];
+
+  try {
+    let content: string | null = null;
+
+    if (hasGroq && groq) {
+      const response = await groq.chat.completions.create({
+        model: GROQ_MODEL,
+        messages,
+        response_format: { type: 'json_object' },
+        temperature: 0.3,
+        max_tokens: 500,
+      });
+      content = response.choices[0]?.message?.content;
+    } else if (hasOpenAI && openai) {
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4-turbo-preview',
+        messages,
+        response_format: { type: 'json_object' },
+        temperature: 0.3,
+        max_tokens: 500,
+      });
+      content = response.choices[0]?.message?.content;
+    }
+
+    if (content) {
+      const translated = JSON.parse(content);
+      return {
+        title: translated.title || topic.title,
+        description: translated.description || topic.description,
+        sideALabel: translated.sideALabel || topic.sideALabel,
+        sideBLabel: translated.sideBLabel || topic.sideBLabel,
+      };
+    }
+  } catch (error) {
+    console.error('Error translating topic to Hindi:', error);
+  }
+
+  // Return original if translation fails
+  return topic;
+}
