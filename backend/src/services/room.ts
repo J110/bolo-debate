@@ -4,7 +4,8 @@ import { broadcastToRoom } from '../websocket/index.js';
 import { generateDebateTopics, generateDebateSuggestions, generateSubtopics } from './ai.js';
 
 const ROOM_DURATION_MS = 30 * 60 * 1000; // 30 minutes
-const TARGET_LIVE_ROOMS_PER_REGION = 3; // Reduced for lighter load
+const MIN_LIVE_ROOMS_PER_REGION = 1; // At least 1 live room per region
+const MIN_SCHEDULED_ROOMS_PER_REGION = 1; // At least 1 upcoming room per region
 const ROOM_INTERVAL_MINUTES = 6; // New room every 6 minutes
 
 // Map states to their primary language for AI-hosted rooms
@@ -185,11 +186,11 @@ export async function sendEndingSoonWarning(): Promise<void> {
 }
 
 export async function ensureMinimumRoomsPerRegion(): Promise<void> {
-  // Limit to first 3 regions to keep it manageable (reduces API calls)
-  const regions = await prisma.region.findMany({ take: 3 });
+  // Get ALL regions - ensure every region has rooms
+  const regions = await prisma.region.findMany();
   const now = new Date();
 
-  console.log(`📍 Creating rooms for ${regions.length} regions: ${regions.map(r => r.name).join(', ')}`);
+  console.log(`📍 Ensuring rooms for ${regions.length} regions: ${regions.map(r => r.name).join(', ')}`);
 
   for (const region of regions) {
     // Count live rooms
@@ -209,14 +210,17 @@ export async function ensureMinimumRoomsPerRegion(): Promise<void> {
       },
     });
 
-    // If not enough live rooms, create some immediately
-    const liveRoomsNeeded = Math.max(0, TARGET_LIVE_ROOMS_PER_REGION - liveCount);
+    // Ensure at least MIN_LIVE_ROOMS_PER_REGION live rooms
+    const liveRoomsNeeded = Math.max(0, MIN_LIVE_ROOMS_PER_REGION - liveCount);
     
-    // Also ensure upcoming rooms are scheduled
-    const upcomingNeeded = Math.max(0, TARGET_LIVE_ROOMS_PER_REGION - scheduledCount);
+    // Ensure at least MIN_SCHEDULED_ROOMS_PER_REGION upcoming rooms
+    const upcomingNeeded = Math.max(0, MIN_SCHEDULED_ROOMS_PER_REGION - scheduledCount);
 
     if (liveRoomsNeeded > 0 || upcomingNeeded > 0) {
+      console.log(`  📍 ${region.name}: creating ${liveRoomsNeeded} live, ${upcomingNeeded} scheduled`);
       await createStaggeredRooms(region.id, liveRoomsNeeded, upcomingNeeded);
+    } else {
+      console.log(`  ✓ ${region.name}: has ${liveCount} live, ${scheduledCount} scheduled`);
     }
   }
 }
