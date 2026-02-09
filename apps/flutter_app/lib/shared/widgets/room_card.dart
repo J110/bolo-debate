@@ -4,79 +4,105 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bolo_debate/core/theme/app_theme.dart';
 import 'package:bolo_debate/shared/models/room_model.dart';
 
-/// Image keywords for each category to ensure diverse, relevant images
-const Map<String, List<String>> _categoryImageKeywords = {
-  'Politics': [
-    'parliament,government',
-    'democracy,vote',
-    'capitol,politics',
-    'law,justice',
-    'speech,podium',
-    'flags,nation',
-    'protest,rally',
-    'election,ballot',
-  ],
-  'Technology': [
-    'technology,future',
-    'coding,programming',
-    'artificial-intelligence,robot',
-    'smartphone,digital',
-    'circuit,electronics',
-    'startup,innovation',
-    'data,network',
-    'cybersecurity,hacker',
-  ],
-  'Business': [
-    'business,finance',
-    'stock-market,trading',
-    'office,corporate',
-    'money,investment',
-    'entrepreneur,startup',
-    'economy,growth',
-    'meeting,conference',
-    'chart,analytics',
-  ],
-  'Sports': [
-    'sports,athlete',
-    'cricket,stadium',
-    'football,soccer',
-    'basketball,court',
-    'olympics,medal',
-    'fitness,training',
-    'team,victory',
-    'competition,race',
-  ],
-  'Entertainment': [
-    'cinema,film',
-    'music,concert',
-    'bollywood,movie',
-    'celebrity,star',
-    'theater,drama',
-    'streaming,media',
-    'dance,performance',
-    'festival,celebration',
-  ],
+/// Category-specific base keywords for image search
+const Map<String, String> _categoryBaseKeywords = {
+  'Politics': 'government,parliament,politics',
+  'Technology': 'technology,digital,computer',
+  'Business': 'business,finance,office',
+  'Sports': 'sports,athlete,stadium',
+  'Entertainment': 'entertainment,movie,cinema',
 };
 
-/// Generate a consistent image URL based on room properties
+/// Topic keywords to detect and use for more relevant images
+const Map<String, String> _topicKeywordMap = {
+  // Technology topics
+  'ai': 'artificial-intelligence,robot,technology',
+  'artificial intelligence': 'artificial-intelligence,robot,futuristic',
+  'social media': 'social-media,smartphone,app',
+  'twitter': 'social-media,technology,digital',
+  'facebook': 'social-media,technology,network',
+  'instagram': 'social-media,phone,app',
+  'cyber': 'cybersecurity,hacker,computer',
+  'software': 'coding,programming,developer',
+  'startup': 'startup,entrepreneur,office',
+  'digital': 'digital,technology,innovation',
+  'internet': 'internet,network,technology',
+  'app': 'mobile-app,smartphone,technology',
+  'data': 'data,analytics,technology',
+  'cloud': 'cloud-computing,server,technology',
+  '5g': 'network,technology,communication',
+  
+  // Sports topics
+  'cricket': 'cricket,bat,stadium',
+  'ipl': 'cricket,stadium,sports',
+  'football': 'football,soccer,stadium',
+  'hockey': 'hockey,sports,team',
+  'tennis': 'tennis,court,sports',
+  'olympic': 'olympics,medal,athlete',
+  'athlete': 'athlete,sports,fitness',
+  'match': 'sports,stadium,competition',
+  'team': 'team,sports,players',
+  'player': 'sports,athlete,player',
+  'sport': 'sports,athlete,competition',
+  'fitness': 'fitness,gym,workout',
+  
+  // Politics topics
+  'election': 'election,vote,ballot',
+  'parliament': 'parliament,government,politics',
+  'minister': 'government,politics,meeting',
+  'government': 'government,capitol,politics',
+  'law': 'law,justice,court',
+  'court': 'court,justice,law',
+  'policy': 'government,policy,meeting',
+  'vote': 'voting,election,democracy',
+  'congress': 'congress,parliament,politics',
+  
+  // Business topics
+  'stock': 'stock-market,trading,finance',
+  'market': 'stock-market,finance,business',
+  'economy': 'economy,finance,growth',
+  'tax': 'tax,finance,money',
+  'bank': 'bank,finance,money',
+  'investment': 'investment,finance,growth',
+  'trade': 'trade,business,commerce',
+  'rupee': 'currency,money,finance',
+  'gdp': 'economy,growth,chart',
+  'company': 'business,corporate,office',
+  
+  // Entertainment topics
+  'bollywood': 'bollywood,film,cinema',
+  'movie': 'movie,cinema,film',
+  'film': 'film,cinema,camera',
+  'actor': 'actor,celebrity,film',
+  'music': 'music,concert,performance',
+  'ott': 'streaming,television,entertainment',
+  'netflix': 'streaming,television,entertainment',
+  'celebrity': 'celebrity,entertainment,star',
+  'award': 'award,trophy,celebration',
+};
+
+/// Generate a relevant image URL based on room title and category
 String _getImageUrl(Room room) {
+  final title = room.title.toLowerCase();
   final category = room.category.name;
-  final keywords = _categoryImageKeywords[category] ?? _categoryImageKeywords['Technology']!;
   
-  // Use room ID hash to consistently pick a keyword set for diversity
-  final hash = room.id.hashCode.abs();
-  final keywordIndex = hash % keywords.length;
-  final keyword = keywords[keywordIndex];
+  // First, try to find topic-specific keywords from the title
+  String? matchedKeywords;
+  for (final entry in _topicKeywordMap.entries) {
+    if (title.contains(entry.key)) {
+      matchedKeywords = entry.value;
+      break;
+    }
+  }
   
-  // Use different image index based on title hash for more variety
-  final titleHash = room.title.hashCode.abs();
-  final imageIndex = titleHash % 30; // Picsum has many images
+  // Fall back to category base keywords if no topic match
+  final keywords = matchedKeywords ?? _categoryBaseKeywords[category] ?? 'debate,discussion';
   
-  // Using Lorem Picsum with seed for consistent images
-  // Seed is based on keyword + room hash for consistency but diversity
-  final seed = '${keyword.split(',').first}-$imageIndex';
+  // Use room ID for cache-busting but keep same image for same room
+  final sig = room.id.hashCode.abs() % 1000;
   
-  return 'https://picsum.photos/seed/$seed/400/200';
+  // Use Unsplash Source API with keywords for relevant images
+  return 'https://source.unsplash.com/400x200/?$keywords&sig=$sig';
 }
 
 /// Get category-specific gradient colors
