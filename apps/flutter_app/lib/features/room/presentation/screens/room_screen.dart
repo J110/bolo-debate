@@ -10,6 +10,7 @@ import 'package:bolo_debate/core/services/api_service.dart';
 import 'package:bolo_debate/features/auth/presentation/providers/auth_provider.dart';
 import 'package:bolo_debate/features/room/presentation/providers/room_provider.dart';
 import 'package:bolo_debate/shared/models/room_model.dart';
+import 'package:bolo_debate/shared/widgets/orbital_visualizer.dart';
 
 class RoomScreen extends ConsumerStatefulWidget {
   final String roomId;
@@ -157,10 +158,13 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
                             // Header
                             _buildHeader(roomState.room!),
                             
-                            // Audio Visualizer - connected to LiveKit frequency analysis
-                            _AudioVisualizer(
-                              isActive: _isLiveKitConnected,
-                              frequencyBands: _frequencyBands,
+                            // Orbital Audio Visualizer - prominent, meditative design
+                            Center(
+                              child: OrbitalVisualizer(
+                                isActive: _isLiveKitConnected,
+                                frequencyBands: _frequencyBands,
+                                size: 200,
+                              ),
                             ),
                             
                             // Participants grid
@@ -1089,105 +1093,6 @@ class _ControlButton extends StatelessWidget {
             style: TextStyle(
               color: color ?? Colors.white,
               fontSize: 10,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Audio Visualizer Widget - connected to real LiveKit audio
-// Frequency spectrum audio visualizer
-class _AudioVisualizer extends StatelessWidget {
-  final bool isActive;
-  final List<double> frequencyBands;
-  
-  const _AudioVisualizer({
-    this.isActive = false,
-    this.frequencyBands = const [],
-  });
-  
-  @override
-  Widget build(BuildContext context) {
-    // Use provided frequency bands or default to 20 bars
-    final bands = frequencyBands.isNotEmpty 
-        ? frequencyBands 
-        : List.filled(20, 0.1);
-    
-    // Calculate if there's significant audio activity
-    final avgLevel = bands.reduce((a, b) => a + b) / bands.length;
-    final hasAudio = avgLevel > 0.15;
-    
-    return Container(
-      height: 70,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Column(
-        children: [
-          // Connection status indicator
-          if (!isActive)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Text(
-                'Connecting to audio...',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.5),
-                  fontSize: 10,
-                ),
-              ),
-            ),
-          // Frequency spectrum visualizer
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: List.generate(bands.length, (index) {
-                // Color gradient from cyan (low freq) to purple (high freq)
-                // Low frequencies: cyan/teal
-                // Mid frequencies: blue/indigo  
-                // High frequencies: purple/magenta
-                final hue = 180.0 + (index * 9); // 180 (cyan) to 360 (magenta)
-                
-                // Brightness based on activity
-                final lightness = isActive && hasAudio ? 0.6 : 0.4;
-                final saturation = isActive ? 0.85 : 0.5;
-                
-                final color = HSLColor.fromAHSL(
-                  1.0,
-                  hue % 360,
-                  saturation,
-                  lightness,
-                ).toColor();
-                
-                // Bar height from frequency data
-                final barHeight = bands[index].clamp(0.05, 1.0);
-                
-                return Container(
-                  width: 5,
-                  margin: const EdgeInsets.symmetric(horizontal: 1.5),
-                  height: 6 + (barHeight * 44), // Min 6, max 50
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                      colors: [
-                        color.withOpacity(0.3),
-                        color.withOpacity(0.7),
-                        color,
-                      ],
-                      stops: const [0.0, 0.5, 1.0],
-                    ),
-                    borderRadius: BorderRadius.circular(3),
-                    boxShadow: isActive && barHeight > 0.4 ? [
-                      BoxShadow(
-                        color: color.withOpacity(0.5),
-                        blurRadius: 8,
-                        spreadRadius: 1,
-                      ),
-                    ] : null,
-                  ),
-                );
-              }),
             ),
           ),
         ],
