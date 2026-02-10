@@ -421,37 +421,37 @@ class _PageIndicator extends StatelessWidget {
 class BoloBanners {
   BoloBanners._();
 
-  // Curated Pixabay ILLUSTRATION URLs - vector/illustration style images
+  // Curated Pixabay ILLUSTRATION URLs - flat design vector illustrations only
   static const _voiceImages = [
-    'https://cdn.pixabay.com/photo/2020/07/08/04/12/work-5382501_640.jpg',
-    'https://cdn.pixabay.com/photo/2021/08/04/13/06/software-developer-6521720_640.jpg',
-    'https://cdn.pixabay.com/photo/2020/01/26/20/14/computer-4795762_640.jpg',
-    'https://cdn.pixabay.com/photo/2021/10/11/17/37/doctor-6701410_640.jpg',
-    'https://cdn.pixabay.com/photo/2020/08/09/14/25/business-5475661_640.jpg',
+    'https://cdn.pixabay.com/photo/2017/01/31/14/03/interview-2024328_640.png',
+    'https://cdn.pixabay.com/photo/2018/09/24/08/52/businessman-3699418_640.jpg',
+    'https://cdn.pixabay.com/photo/2017/10/10/21/47/blogger-2838945_640.jpg',
+    'https://cdn.pixabay.com/photo/2018/09/24/08/52/businessman-3699419_640.jpg',
+    'https://cdn.pixabay.com/photo/2017/01/31/15/33/linux-2024704_640.png',
   ];
 
   static const _debateImages = [
-    'https://cdn.pixabay.com/photo/2021/10/11/17/54/technology-6701504_640.jpg',
-    'https://cdn.pixabay.com/photo/2020/07/08/04/12/work-5382501_640.jpg',
-    'https://cdn.pixabay.com/photo/2021/08/05/12/36/software-development-6523979_640.jpg',
-    'https://cdn.pixabay.com/photo/2020/06/24/19/41/social-media-5337825_640.jpg',
-    'https://cdn.pixabay.com/photo/2019/07/14/16/27/pen-4337521_640.jpg',
+    'https://cdn.pixabay.com/photo/2017/01/31/14/03/interview-2024328_640.png',
+    'https://cdn.pixabay.com/photo/2018/09/24/08/31/speech-3699279_640.jpg',
+    'https://cdn.pixabay.com/photo/2017/01/31/15/57/conversation-2024785_640.png',
+    'https://cdn.pixabay.com/photo/2018/09/27/09/22/web-3706561_640.jpg',
+    'https://cdn.pixabay.com/photo/2017/01/31/15/33/linux-2024708_640.png',
   ];
 
   static const _trendingImages = [
-    'https://cdn.pixabay.com/photo/2020/08/03/10/00/trending-5459832_640.jpg',
-    'https://cdn.pixabay.com/photo/2021/08/04/13/06/software-developer-6521720_640.jpg',
-    'https://cdn.pixabay.com/photo/2020/04/17/13/40/social-media-marketing-5054489_640.jpg',
-    'https://cdn.pixabay.com/photo/2020/05/18/16/17/social-media-5187243_640.png',
-    'https://cdn.pixabay.com/photo/2017/06/20/08/12/maintenance-2422173_640.jpg',
+    'https://cdn.pixabay.com/photo/2018/09/27/09/22/web-3706562_640.jpg',
+    'https://cdn.pixabay.com/photo/2017/10/10/21/47/blogger-2838945_640.jpg',
+    'https://cdn.pixabay.com/photo/2018/09/24/08/52/businessman-3699417_640.jpg',
+    'https://cdn.pixabay.com/photo/2016/06/03/13/57/digital-marketing-1433427_640.jpg',
+    'https://cdn.pixabay.com/photo/2017/01/31/15/33/linux-2024707_640.png',
   ];
 
   static const _communityImages = [
-    'https://cdn.pixabay.com/photo/2020/08/09/14/25/business-5475659_640.jpg',
-    'https://cdn.pixabay.com/photo/2020/02/03/00/12/fiber-4814456_640.jpg',
-    'https://cdn.pixabay.com/photo/2021/08/04/13/27/software-developer-6521977_640.jpg',
-    'https://cdn.pixabay.com/photo/2017/01/22/12/07/imac-1999636_640.png',
-    'https://cdn.pixabay.com/photo/2019/06/17/19/48/source-4280758_640.jpg',
+    'https://cdn.pixabay.com/photo/2017/01/31/17/34/robot-2025311_640.png',
+    'https://cdn.pixabay.com/photo/2018/09/27/09/22/web-3706563_640.jpg',
+    'https://cdn.pixabay.com/photo/2017/01/31/15/33/linux-2024706_640.png',
+    'https://cdn.pixabay.com/photo/2018/09/24/08/52/businessman-3699416_640.jpg',
+    'https://cdn.pixabay.com/photo/2016/06/03/13/57/digital-marketing-1433427_640.jpg',
   ];
 
   static BannerItem joinDebate({VoidCallback? onAction}) => BannerItem(

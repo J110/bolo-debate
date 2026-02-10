@@ -90,6 +90,21 @@ const PRIORITY_KEYWORDS: Record<string, string[]> = {
   'athlete': ['athlete running', 'sports fitness', 'marathon runner'],
   'sports': ['sports equipment', 'athletics', 'fitness exercise'],
   'injury': ['medical bandage', 'hospital care', 'health treatment'],
+  'coach': ['sports coach', 'training mentor', 'team coach'],
+  'commentator': ['sports commentary', 'microphone broadcast', 'sports announcer'],
+  'retire': ['retirement celebration', 'career achievement', 'sports legend'],
+  'player': ['sports player', 'athlete competition', 'team sports'],
+  
+  // Municipal & Public Services
+  'waste': ['garbage truck', 'recycling waste', 'waste management'],
+  'garbage': ['garbage collection', 'trash disposal', 'sanitation'],
+  'trash': ['trash bin', 'waste disposal', 'garbage truck'],
+  'recycling': ['recycling symbol', 'eco friendly', 'green environment'],
+  'municipal': ['city government', 'urban planning', 'public services'],
+  'sanitation': ['cleaning hygiene', 'public health', 'sanitation worker'],
+  'collection': ['garbage truck', 'waste collection', 'recycling bin'],
+  'bulk': ['large container', 'warehouse storage', 'industrial'],
+  'convenience': ['easy access', 'service delivery', 'customer service'],
   
   // Technology - diverse terms
   'ai': ['artificial intelligence', 'robot technology', 'machine learning'],
@@ -150,6 +165,7 @@ const PRIORITY_KEYWORDS: Record<string, string[]> = {
   'strategic': ['business strategy', 'planning chess', 'tactical decision'],
   
   // Social Issues - diverse terms
+  'public health': ['medical healthcare', 'hospital doctor', 'health wellness'],
   'marriage': ['wedding ceremony', 'couple love', 'marriage celebration'],
   'wedding': ['bride groom', 'wedding rings', 'marriage ceremony'],
   'education': ['school learning', 'education books', 'student classroom'],

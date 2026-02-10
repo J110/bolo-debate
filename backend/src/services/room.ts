@@ -5,8 +5,8 @@ import { generateDebateTopics, generateDebateSuggestions, generateSubtopics, tra
 import { getIllustrationForTitle } from './pixabay.js';
 
 const ROOM_DURATION_MS = 30 * 60 * 1000; // 30 minutes
-const MIN_LIVE_ROOMS_PER_REGION = 1; // At least 1 live room per region
-const MIN_SCHEDULED_ROOMS_PER_REGION = 1; // At least 1 upcoming room per region
+const MIN_LIVE_ROOMS_PER_REGION = 2; // At least 2 live rooms per region
+const MIN_SCHEDULED_ROOMS_PER_REGION = 2; // At least 2 upcoming rooms per region
 const ROOM_INTERVAL_MINUTES = 6; // New room every 6 minutes
 
 // Randomly select Hindi or English for room language
