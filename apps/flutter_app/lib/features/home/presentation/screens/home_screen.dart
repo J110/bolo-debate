@@ -93,7 +93,8 @@ class HomeScreen extends ConsumerWidget {
                 items: [
                   BoloBanners.joinDebate(
                     onAction: () {
-                      // Scroll to live rooms or show available rooms
+                      // Navigate to discover page to find rooms to join
+                      context.go('/discover');
                     },
                   ),
                   BoloBanners.startDebate(
@@ -101,12 +102,19 @@ class HomeScreen extends ConsumerWidget {
                   ),
                   BoloBanners.trending(
                     onAction: () {
-                      // Could filter to trending topics
+                      // Navigate to discover page for trending topics
+                      context.go('/discover');
                     },
                   ),
                 ],
                 onNotificationTap: () {
-                  // TODO: Implement notifications
+                  // TODO: Implement notifications screen
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Notifications coming soon!'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
                 },
               ),
             ),

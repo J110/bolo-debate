@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bolo_debate/core/theme/app_theme.dart';
 
 /// A banner item for the hero carousel
@@ -9,6 +10,7 @@ class BannerItem {
   final VoidCallback? onAction;
   final List<Color> gradientColors;
   final IconData? icon;
+  final String? imageUrl;
 
   const BannerItem({
     required this.title,
@@ -17,6 +19,7 @@ class BannerItem {
     this.onAction,
     required this.gradientColors,
     this.icon,
+    this.imageUrl,
   });
 }
 
@@ -164,51 +167,91 @@ class _BannerCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        color: Colors.white.withOpacity(0.15),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.2),
-          width: 1,
-        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       clipBehavior: Clip.antiAlias,
       child: Stack(
+        fit: StackFit.expand,
         children: [
-          // Decorative elements
-          Positioned(
-            right: -20,
-            top: -20,
-            child: Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.1),
+          // Background image with grayscale filter
+          if (item.imageUrl != null)
+            ColorFiltered(
+              colorFilter: const ColorFilter.matrix(<double>[
+                0.33, 0.33, 0.33, 0, 0,
+                0.33, 0.33, 0.33, 0, 0,
+                0.33, 0.33, 0.33, 0, 0,
+                0,    0,    0,    1, 0,
+              ]),
+              child: CachedNetworkImage(
+                imageUrl: item.imageUrl!,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
+                  color: item.gradientColors.first.withOpacity(0.3),
+                ),
+                errorWidget: (context, url, error) => Container(
+                  color: item.gradientColors.first.withOpacity(0.3),
+                ),
+              ),
+            ),
+          // Gradient overlay for theme color
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  item.gradientColors.first.withOpacity(0.85),
+                  item.gradientColors.last.withOpacity(0.75),
+                ],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
               ),
             ),
           ),
+          // Subtle highlight gradient
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.white.withOpacity(0.1),
+                  Colors.transparent,
+                  Colors.black.withOpacity(0.1),
+                ],
+                stops: const [0.0, 0.5, 1.0],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
+          ),
+          // Decorative elements
           Positioned(
-            right: 30,
-            bottom: -20,
+            right: -30,
+            top: -30,
             child: Container(
-              width: 60,
-              height: 60,
+              width: 120,
+              height: 120,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: Colors.white.withOpacity(0.08),
               ),
             ),
           ),
-          // Decorative mic/speech icons
-          if (item.icon != null)
-            Positioned(
-              right: 16,
-              top: 16,
-              child: Icon(
-                item.icon,
-                size: 70,
-                color: Colors.white.withOpacity(0.2),
+          Positioned(
+            right: 20,
+            bottom: -40,
+            child: Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.06),
               ),
             ),
+          ),
           // Content
           Padding(
             padding: const EdgeInsets.all(20),
@@ -223,6 +266,13 @@ class _BannerCard extends StatelessWidget {
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                     height: 1.2,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black26,
+                        blurRadius: 4,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -233,9 +283,16 @@ class _BannerCard extends StatelessWidget {
                   child: Text(
                     item.subtitle,
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.85),
+                      color: Colors.white.withOpacity(0.9),
                       fontSize: 13,
                       height: 1.3,
+                      shadows: const [
+                        Shadow(
+                          color: Colors.black26,
+                          blurRadius: 4,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -342,39 +399,45 @@ class _PageIndicator extends StatelessWidget {
 class BoloBanners {
   BoloBanners._();
 
+  // Curated Pixabay illustration URLs for banners
+  static const _voiceImage = 'https://cdn.pixabay.com/photo/2017/01/31/17/53/microphone-2025459_640.png';
+  static const _debateImage = 'https://cdn.pixabay.com/photo/2018/03/22/02/37/speech-bubble-3249879_640.png';
+  static const _trendingImage = 'https://cdn.pixabay.com/photo/2017/06/10/07/18/list-2389219_640.png';
+  static const _communityImage = 'https://cdn.pixabay.com/photo/2017/01/31/20/53/network-2027147_640.png';
+
   static BannerItem joinDebate({VoidCallback? onAction}) => BannerItem(
         title: 'Your Voice Matters',
-        subtitle: 'Join live debates on trending topics and share your perspective with the world',
+        subtitle: 'Join live debates on trending topics and share your perspective',
         actionText: 'Join Now',
         onAction: onAction,
         gradientColors: [AppColors.primary, AppColors.primaryDark],
-        icon: Icons.mic,
+        imageUrl: _voiceImage,
       );
 
   static BannerItem startDebate({VoidCallback? onAction}) => BannerItem(
         title: 'Start a Debate',
-        subtitle: 'Have a topic in mind? Create your own room and invite others to discuss',
+        subtitle: 'Have a topic in mind? Create your own room and invite others',
         actionText: 'Create Room',
         onAction: onAction,
         gradientColors: [AppColors.accent, AppColors.accentDark],
-        icon: Icons.record_voice_over,
+        imageUrl: _debateImage,
       );
 
   static BannerItem trending({VoidCallback? onAction}) => BannerItem(
         title: 'Trending Now',
-        subtitle: 'Hot topics are being discussed right now. Don\'t miss out on the conversation!',
+        subtitle: 'Hot topics are being discussed right now. Join the conversation!',
         actionText: 'Explore',
         onAction: onAction,
         gradientColors: [AppColors.coral, AppColors.secondary],
-        icon: Icons.local_fire_department,
+        imageUrl: _trendingImage,
       );
 
   static BannerItem community({VoidCallback? onAction}) => BannerItem(
         title: 'Growing Community',
-        subtitle: 'Join thousands of debaters sharing ideas and perspectives every day',
+        subtitle: 'Join thousands of debaters sharing ideas and perspectives',
         actionText: 'Learn More',
         onAction: onAction,
         gradientColors: [AppColors.secondaryDark, AppColors.secondary],
-        icon: Icons.groups,
+        imageUrl: _communityImage,
       );
 }
