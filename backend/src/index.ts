@@ -155,6 +155,26 @@ async function start() {
       return { name: 'Bolo Debate API', status: 'running', timestamp: new Date().toISOString() };
     });
 
+    // Self-ping to prevent Render from sleeping (every 10 minutes)
+    const SELF_PING_INTERVAL = 10 * 60 * 1000; // 10 minutes
+    const selfPing = async () => {
+      try {
+        const url = process.env.RENDER_EXTERNAL_URL || 'https://bolo-debate-api.onrender.com';
+        const response = await fetch(`${url}/health`);
+        if (response.ok) {
+          console.log(`🏓 Self-ping successful at ${new Date().toISOString()}`);
+        }
+      } catch (error) {
+        console.log('🏓 Self-ping failed (this is normal during startup)');
+      }
+    };
+    
+    // Start self-ping after server is ready (delayed start)
+    setTimeout(() => {
+      console.log('🏓 Starting self-ping to prevent sleep...');
+      setInterval(selfPing, SELF_PING_INTERVAL);
+    }, 60000); // Wait 1 minute before starting
+
     // Register API routes
     await app.register(authRoutes, { prefix: '/api/auth' });
     await app.register(userRoutes, { prefix: '/api/users' });
