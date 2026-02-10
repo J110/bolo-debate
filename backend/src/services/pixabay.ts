@@ -154,7 +154,7 @@ export async function searchIllustrations(
   try {
     const params = new URLSearchParams({
       key: apiKey,
-      q: `${keyword} illustration`,
+      q: `simple ${keyword} illustration`,
       image_type: 'illustration',
       orientation: 'horizontal',
       per_page: count.toString(),

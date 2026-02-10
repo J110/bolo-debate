@@ -324,12 +324,18 @@ const Map<String, List<String>> _categoryFallbackIllustrations = {
   ],
 };
 
-/// Get the best matching illustration URL for a room
+/// Get the best illustration URL for a room
+/// Prefers room.illustrationUrl (from Pixabay API), falls back to local matching
 String _getImageUrl(Room room) {
-  final title = room.title;
-  final lowerTitle = title.toLowerCase();
+  // Use backend-provided illustration URL if available (best option)
+  if (room.illustrationUrl != null && room.illustrationUrl!.isNotEmpty) {
+    return room.illustrationUrl!;
+  }
   
-  // Step 1: Try direct English keyword match
+  // Fallback: Try local keyword matching for older rooms without illustrationUrl
+  final lowerTitle = room.title.toLowerCase();
+  
+  // Try direct English keyword match
   for (final entry in _topicIllustrations.entries) {
     if (lowerTitle.contains(entry.key)) {
       final images = entry.value;
@@ -338,9 +344,9 @@ String _getImageUrl(Room room) {
     }
   }
   
-  // Step 2: Try Hindi-to-English translation match
+  // Try Hindi-to-English translation match
   for (final hindiEntry in _hindiToEnglish.entries) {
-    if (title.contains(hindiEntry.key)) {
+    if (room.title.contains(hindiEntry.key)) {
       final englishKeyword = hindiEntry.value;
       final images = _topicIllustrations[englishKeyword];
       if (images != null && images.isNotEmpty) {
@@ -350,7 +356,7 @@ String _getImageUrl(Room room) {
     }
   }
   
-  // Step 3: Fallback to category illustrations (always show something)
+  // Final fallback: category illustrations
   final categoryImages = _categoryFallbackIllustrations[room.category.name] ?? 
       _categoryFallbackIllustrations['Business']!;
   final index = room.id.hashCode.abs() % categoryImages.length;

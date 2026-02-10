@@ -2,6 +2,7 @@ import { prisma } from '../config/database.js';
 import { redis, REDIS_KEYS } from '../config/redis.js';
 import { broadcastToRoom } from '../websocket/index.js';
 import { generateDebateTopics, generateDebateSuggestions, generateSubtopics, translateTopicToHindi } from './ai.js';
+import { getIllustrationForTitle } from './pixabay.js';
 
 const ROOM_DURATION_MS = 30 * 60 * 1000; // 30 minutes
 const MIN_LIVE_ROOMS_PER_REGION = 1; // At least 1 live room per region
@@ -258,6 +259,9 @@ async function createStaggeredRooms(
       if (topics.length > 0) {
         let topic = topics[0];
         
+        // Fetch illustration from English title BEFORE translation
+        const illustrationUrl = await getIllustrationForTitle(topic.title);
+        
         // Translate to Hindi if room language is Hindi
         if (language === 'Hindi') {
           const translated = await translateTopicToHindi(topic);
@@ -282,6 +286,7 @@ async function createStaggeredRooms(
               sideALabel: topic.sideALabel,
               sideBLabel: topic.sideBLabel,
               language,
+              illustrationUrl,
               scheduledAt: startedAt,
               startedAt: startedAt,
               endsAt: endsAt,
@@ -312,6 +317,9 @@ async function createStaggeredRooms(
       if (topics.length > 0) {
         let topic = topics[0];
         
+        // Fetch illustration from English title BEFORE translation
+        const illustrationUrl = await getIllustrationForTitle(topic.title);
+        
         // Translate to Hindi if room language is Hindi
         if (language === 'Hindi') {
           const translated = await translateTopicToHindi(topic);
@@ -335,6 +343,7 @@ async function createStaggeredRooms(
             sideALabel: topic.sideALabel,
             sideBLabel: topic.sideBLabel,
             language,
+            illustrationUrl,
             scheduledAt,
             status: 'SCHEDULED',
             isAiHosted: true,

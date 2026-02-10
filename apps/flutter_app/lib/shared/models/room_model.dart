@@ -73,6 +73,7 @@ class Room extends Equatable {
   final String? sideALabel;
   final String? sideBLabel;
   final String language; // Discussion language
+  final String? illustrationUrl; // Pixabay illustration URL
   final DateTime scheduledAt;
   final DateTime? startedAt;
   final DateTime? endsAt;
@@ -94,6 +95,7 @@ class Room extends Equatable {
     this.sideALabel,
     this.sideBLabel,
     this.language = 'English',
+    this.illustrationUrl,
     required this.scheduledAt,
     this.startedAt,
     this.endsAt,
@@ -117,6 +119,7 @@ class Room extends Equatable {
       sideALabel: json['sideALabel'] as String?,
       sideBLabel: json['sideBLabel'] as String?,
       language: json['language'] as String? ?? 'English',
+      illustrationUrl: json['illustrationUrl'] as String?,
       scheduledAt: DateTime.parse(json['scheduledAt'] as String),
       startedAt: json['startedAt'] != null ? DateTime.parse(json['startedAt'] as String) : null,
       endsAt: json['endsAt'] != null ? DateTime.parse(json['endsAt'] as String) : null,
@@ -165,6 +168,7 @@ class Room extends Equatable {
         sideALabel,
         sideBLabel,
         language,
+        illustrationUrl,
         scheduledAt,
         startedAt,
         endsAt,
