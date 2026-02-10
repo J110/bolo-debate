@@ -6,6 +6,7 @@ import 'package:bolo_debate/core/services/api_service.dart';
 import 'package:bolo_debate/features/home/presentation/providers/data_providers.dart';
 import 'package:bolo_debate/shared/widgets/room_card.dart';
 import 'package:bolo_debate/shared/widgets/category_chips.dart';
+import 'package:bolo_debate/shared/widgets/hero_banner.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -137,6 +138,27 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 );
               },
+            ),
+            
+            // Hero Banner Carousel
+            SliverToBoxAdapter(
+              child: HeroBanner(
+                items: [
+                  BoloBanners.joinDebate(
+                    onAction: () {
+                      // Scroll to live rooms or show available rooms
+                    },
+                  ),
+                  BoloBanners.startDebate(
+                    onAction: () => context.push('/create-room'),
+                  ),
+                  BoloBanners.trending(
+                    onAction: () {
+                      // Could filter to trending topics
+                    },
+                  ),
+                ],
+              ),
             ),
             
             // Categories
