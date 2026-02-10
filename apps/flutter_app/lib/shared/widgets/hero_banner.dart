@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bolo_debate/core/theme/app_theme.dart';
@@ -10,7 +11,7 @@ class BannerItem {
   final VoidCallback? onAction;
   final List<Color> gradientColors;
   final IconData? icon;
-  final String? imageUrl;
+  final List<String> imageUrls; // List of URLs for random selection
 
   const BannerItem({
     required this.title,
@@ -19,8 +20,15 @@ class BannerItem {
     this.onAction,
     required this.gradientColors,
     this.icon,
-    this.imageUrl,
+    this.imageUrls = const [],
   });
+  
+  /// Get a random image URL from the list
+  String? get randomImageUrl {
+    if (imageUrls.isEmpty) return null;
+    final random = Random();
+    return imageUrls[random.nextInt(imageUrls.length)];
+  }
 }
 
 /// Hero banner widget that displays promotional content
@@ -157,10 +165,24 @@ class _HeroBannerState extends State<HeroBanner> {
   }
 }
 
-class _BannerCard extends StatelessWidget {
+class _BannerCard extends StatefulWidget {
   final BannerItem item;
 
   const _BannerCard({required this.item});
+
+  @override
+  State<_BannerCard> createState() => _BannerCardState();
+}
+
+class _BannerCardState extends State<_BannerCard> {
+  late String? _selectedImageUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    // Select random image when card is created
+    _selectedImageUrl = widget.item.randomImageUrl;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -180,7 +202,7 @@ class _BannerCard extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           // Background image with grayscale filter
-          if (item.imageUrl != null)
+          if (_selectedImageUrl != null)
             ColorFiltered(
               colorFilter: const ColorFilter.matrix(<double>[
                 0.33, 0.33, 0.33, 0, 0,
@@ -189,13 +211,13 @@ class _BannerCard extends StatelessWidget {
                 0,    0,    0,    1, 0,
               ]),
               child: CachedNetworkImage(
-                imageUrl: item.imageUrl!,
+                imageUrl: _selectedImageUrl!,
                 fit: BoxFit.cover,
                 placeholder: (context, url) => Container(
-                  color: item.gradientColors.first.withOpacity(0.3),
+                  color: widget.item.gradientColors.first.withOpacity(0.3),
                 ),
                 errorWidget: (context, url, error) => Container(
-                  color: item.gradientColors.first.withOpacity(0.3),
+                  color: widget.item.gradientColors.first.withOpacity(0.3),
                 ),
               ),
             ),
@@ -204,8 +226,8 @@ class _BannerCard extends StatelessWidget {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  item.gradientColors.first.withOpacity(0.85),
-                  item.gradientColors.last.withOpacity(0.75),
+                  widget.item.gradientColors.first.withOpacity(0.85),
+                  widget.item.gradientColors.last.withOpacity(0.75),
                 ],
                 begin: Alignment.centerLeft,
                 end: Alignment.centerRight,
@@ -260,7 +282,7 @@ class _BannerCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  item.title,
+                  widget.item.title,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 20,
@@ -281,7 +303,7 @@ class _BannerCard extends StatelessWidget {
                 SizedBox(
                   width: MediaQuery.of(context).size.width * 0.55,
                   child: Text(
-                    item.subtitle,
+                    widget.item.subtitle,
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.9),
                       fontSize: 13,
@@ -300,9 +322,9 @@ class _BannerCard extends StatelessWidget {
                 ),
                 const Spacer(),
                 _ActionButton(
-                  text: item.actionText,
-                  onPressed: item.onAction,
-                  gradientColors: item.gradientColors,
+                  text: widget.item.actionText,
+                  onPressed: widget.item.onAction,
+                  gradientColors: widget.item.gradientColors,
                 ),
               ],
             ),
@@ -399,44 +421,38 @@ class _PageIndicator extends StatelessWidget {
 class BoloBanners {
   BoloBanners._();
 
-  // Curated Pixabay ILLUSTRATION URLs for banners - verified working URLs
+  // Curated Pixabay ILLUSTRATION URLs - vector/illustration style images
   static const _voiceImages = [
-    'https://cdn.pixabay.com/photo/2016/11/23/14/37/audio-1853532_640.jpg',
-    'https://cdn.pixabay.com/photo/2016/11/22/19/17/buildings-1850129_640.jpg',
-    'https://cdn.pixabay.com/photo/2018/09/27/09/22/artificial-intelligence-3706562_640.jpg',
-    'https://cdn.pixabay.com/photo/2017/03/23/09/34/artificial-intelligence-2167835_640.jpg',
-    'https://cdn.pixabay.com/photo/2016/12/29/18/44/blog-1939451_640.jpg',
+    'https://cdn.pixabay.com/photo/2020/07/08/04/12/work-5382501_640.jpg',
+    'https://cdn.pixabay.com/photo/2021/08/04/13/06/software-developer-6521720_640.jpg',
+    'https://cdn.pixabay.com/photo/2020/01/26/20/14/computer-4795762_640.jpg',
+    'https://cdn.pixabay.com/photo/2021/10/11/17/37/doctor-6701410_640.jpg',
+    'https://cdn.pixabay.com/photo/2020/08/09/14/25/business-5475661_640.jpg',
   ];
 
   static const _debateImages = [
-    'https://cdn.pixabay.com/photo/2018/03/10/12/00/teamwork-3213924_640.jpg',
-    'https://cdn.pixabay.com/photo/2017/08/10/08/47/laptop-2620118_640.jpg',
-    'https://cdn.pixabay.com/photo/2015/01/08/18/27/startup-593341_640.jpg',
-    'https://cdn.pixabay.com/photo/2016/11/29/06/18/home-office-1867761_640.jpg',
-    'https://cdn.pixabay.com/photo/2019/04/14/10/27/book-4126483_640.jpg',
+    'https://cdn.pixabay.com/photo/2021/10/11/17/54/technology-6701504_640.jpg',
+    'https://cdn.pixabay.com/photo/2020/07/08/04/12/work-5382501_640.jpg',
+    'https://cdn.pixabay.com/photo/2021/08/05/12/36/software-development-6523979_640.jpg',
+    'https://cdn.pixabay.com/photo/2020/06/24/19/41/social-media-5337825_640.jpg',
+    'https://cdn.pixabay.com/photo/2019/07/14/16/27/pen-4337521_640.jpg',
   ];
 
   static const _trendingImages = [
-    'https://cdn.pixabay.com/photo/2016/11/27/21/42/stock-1863880_640.jpg',
-    'https://cdn.pixabay.com/photo/2017/07/10/23/43/question-mark-2492009_640.jpg',
-    'https://cdn.pixabay.com/photo/2018/05/18/15/30/web-design-3411373_640.jpg',
-    'https://cdn.pixabay.com/photo/2016/10/09/08/32/digital-marketing-1725340_640.jpg',
-    'https://cdn.pixabay.com/photo/2017/10/10/21/47/computer-2838921_640.jpg',
+    'https://cdn.pixabay.com/photo/2020/08/03/10/00/trending-5459832_640.jpg',
+    'https://cdn.pixabay.com/photo/2021/08/04/13/06/software-developer-6521720_640.jpg',
+    'https://cdn.pixabay.com/photo/2020/04/17/13/40/social-media-marketing-5054489_640.jpg',
+    'https://cdn.pixabay.com/photo/2020/05/18/16/17/social-media-5187243_640.png',
+    'https://cdn.pixabay.com/photo/2017/06/20/08/12/maintenance-2422173_640.jpg',
   ];
 
   static const _communityImages = [
-    'https://cdn.pixabay.com/photo/2017/08/06/22/01/people-2596150_640.jpg',
-    'https://cdn.pixabay.com/photo/2019/10/09/07/28/development-4536630_640.jpg',
-    'https://cdn.pixabay.com/photo/2017/01/14/10/56/people-1979261_640.jpg',
-    'https://cdn.pixabay.com/photo/2016/02/19/11/53/networking-1209738_640.jpg',
-    'https://cdn.pixabay.com/photo/2016/06/03/13/57/digital-marketing-1433427_640.jpg',
+    'https://cdn.pixabay.com/photo/2020/08/09/14/25/business-5475659_640.jpg',
+    'https://cdn.pixabay.com/photo/2020/02/03/00/12/fiber-4814456_640.jpg',
+    'https://cdn.pixabay.com/photo/2021/08/04/13/27/software-developer-6521977_640.jpg',
+    'https://cdn.pixabay.com/photo/2017/01/22/12/07/imac-1999636_640.png',
+    'https://cdn.pixabay.com/photo/2019/06/17/19/48/source-4280758_640.jpg',
   ];
-
-  /// Pick a random image from a list
-  static String _randomImage(List<String> images) {
-    final index = DateTime.now().microsecond % images.length;
-    return images[index];
-  }
 
   static BannerItem joinDebate({VoidCallback? onAction}) => BannerItem(
         title: 'Your Voice Matters',
@@ -444,7 +460,7 @@ class BoloBanners {
         actionText: 'Join Now',
         onAction: onAction,
         gradientColors: [AppColors.primary, AppColors.primaryDark],
-        imageUrl: _randomImage(_voiceImages),
+        imageUrls: _voiceImages,
       );
 
   static BannerItem startDebate({VoidCallback? onAction}) => BannerItem(
@@ -453,7 +469,7 @@ class BoloBanners {
         actionText: 'Create Room',
         onAction: onAction,
         gradientColors: [AppColors.accent, AppColors.accentDark],
-        imageUrl: _randomImage(_debateImages),
+        imageUrls: _debateImages,
       );
 
   static BannerItem trending({VoidCallback? onAction}) => BannerItem(
@@ -462,7 +478,7 @@ class BoloBanners {
         actionText: 'Explore',
         onAction: onAction,
         gradientColors: [AppColors.coral, AppColors.secondary],
-        imageUrl: _randomImage(_trendingImages),
+        imageUrls: _trendingImages,
       );
 
   static BannerItem community({VoidCallback? onAction}) => BannerItem(
@@ -471,6 +487,6 @@ class BoloBanners {
         actionText: 'Learn More',
         onAction: onAction,
         gradientColors: [AppColors.secondaryDark, AppColors.secondary],
-        imageUrl: _randomImage(_communityImages),
+        imageUrls: _communityImages,
       );
 }
