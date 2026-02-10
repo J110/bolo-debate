@@ -165,6 +165,41 @@ const PRIORITY_KEYWORDS: Record<string, string[]> = {
   'women': ['female empowerment', 'women rights', 'gender equality'],
   'revive': ['recovery growth', 'renewal rebirth', 'restoration'],
   'struggling': ['challenge difficulty', 'business struggle', 'financial trouble'],
+  
+  // Public discourse & debate topics
+  'criticize': ['public opinion', 'discussion debate', 'speech microphone'],
+  'criticism': ['feedback review', 'public speaking', 'commentary opinion'],
+  'public': ['public speaker', 'community people', 'crowd audience'],
+  'figure': ['leadership speaker', 'famous person', 'public figure'],
+  'prioritize': ['priority decision', 'choice selection', 'balance scale'],
+  'economic': ['economy finance', 'business growth', 'money investment'],
+  'growth': ['growth chart', 'business success', 'plant growing'],
+  'trade': ['international trade', 'business handshake', 'global commerce'],
+  'deal': ['business agreement', 'handshake deal', 'contract signing'],
+  'interest': ['financial interest', 'benefit advantage', 'money profit'],
+  'merger': ['business merger', 'company acquisition', 'corporate deal'],
+  'acquisition': ['business takeover', 'corporate merger', 'company buyout'],
+  'consumer': ['shopping customer', 'retail buyer', 'consumer market'],
+  'benefit': ['advantage profit', 'success reward', 'positive outcome'],
+  
+  // Space & Science
+  'mars': ['mars planet', 'space exploration', 'astronaut space'],
+  'space': ['outer space', 'astronaut rocket', 'galaxy stars'],
+  'colonize': ['space colony', 'future settlement', 'mars colonization'],
+  'science': ['scientific research', 'laboratory experiment', 'science discovery'],
+  'research': ['research laboratory', 'scientific study', 'investigation analysis'],
+  
+  // More common debate terms
+  'ban': ['prohibition sign', 'restricted forbidden', 'stop ban'],
+  'allow': ['permission granted', 'approval checkmark', 'access allowed'],
+  'government': ['government building', 'politics administration', 'public office'],
+  'freedom': ['liberty freedom', 'independence flag', 'free speech'],
+  'rights': ['human rights', 'civil rights', 'justice equality'],
+  'justice': ['justice scales', 'court law', 'fairness equality'],
+  'equality': ['equal rights', 'balance fairness', 'diversity inclusion'],
+  'future': ['future technology', 'tomorrow vision', 'forward progress'],
+  'problem': ['problem solving', 'challenge solution', 'puzzle thinking'],
+  'solution': ['solution idea', 'problem solving', 'lightbulb innovation'],
 };
 
 /**
@@ -219,11 +254,24 @@ interface PixabayResponse {
 }
 
 /**
+ * Simple string hash function for deterministic image selection
+ */
+function hashString(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return Math.abs(hash);
+}
+
+/**
  * Search Pixabay for illustrations matching a keyword
  */
 export async function searchIllustrations(
   keyword: string,
-  count: number = 10
+  count: number = 20
 ): Promise<string[]> {
   const apiKey = config.pixabay?.apiKey;
   
@@ -233,15 +281,14 @@ export async function searchIllustrations(
   }
   
   try {
-    // Request more results for better diversity
+    // Request many results for diversity (removed editors_choice - too restrictive)
     const params = new URLSearchParams({
       key: apiKey,
-      q: `simple ${keyword}`,
+      q: `${keyword} illustration`,
       image_type: 'illustration',
       orientation: 'horizontal',
-      per_page: Math.max(count, 15).toString(), // Get at least 15 for diversity
+      per_page: Math.max(count, 30).toString(), // Get 30+ for maximum diversity
       safesearch: 'true',
-      editors_choice: 'true', // Prefer higher quality curated images
     });
     
     const response = await fetch(`${PIXABAY_API_URL}?${params}`);
@@ -264,6 +311,7 @@ export async function searchIllustrations(
 /**
  * Get a single illustration URL for a room title
  * Handles both English and Hindi titles (translates Hindi first)
+ * Uses title hash for deterministic but unique image selection per room
  */
 export async function getIllustrationForTitle(title: string): Promise<string | null> {
   let textForKeyword = title;
@@ -276,16 +324,36 @@ export async function getIllustrationForTitle(title: string): Promise<string | n
   }
   
   const keyword = extractKeyword(textForKeyword);
-  console.log(`Searching Pixabay for keyword: ${keyword}`);
+  console.log(`Searching Pixabay for keyword: ${keyword} (from title: ${title.substring(0, 40)}...)`);
   
-  const images = await searchIllustrations(keyword, 3);
+  // Get many images for diversity
+  let images = await searchIllustrations(keyword, 30);
+  
+  // If no results, try a fallback search with just the main word
+  if (images.length === 0) {
+    const fallbackKeyword = keyword.split(' ')[0];
+    console.log(`No results for "${keyword}", trying fallback: ${fallbackKeyword}`);
+    images = await searchIllustrations(fallbackKeyword, 30);
+  }
+  
+  // If still no results, try category-based fallback
+  if (images.length === 0) {
+    console.log(`No results for fallback, trying generic "concept idea"`);
+    images = await searchIllustrations('concept idea abstract', 30);
+  }
   
   if (images.length === 0) {
     return null;
   }
   
-  // Return a random image from the results for variety
-  return images[Math.floor(Math.random() * images.length)];
+  // Use title hash for DETERMINISTIC selection - same title always gets same image
+  // but different titles get different images from the pool
+  const titleHash = hashString(title);
+  const selectedIndex = titleHash % images.length;
+  
+  console.log(`Selected image ${selectedIndex + 1}/${images.length} for title hash ${titleHash}`);
+  
+  return images[selectedIndex];
 }
 
 // Cache for illustration URLs to avoid repeated API calls
