@@ -399,11 +399,44 @@ class _PageIndicator extends StatelessWidget {
 class BoloBanners {
   BoloBanners._();
 
-  // Curated Pixabay illustration URLs for banners
-  static const _voiceImage = 'https://cdn.pixabay.com/photo/2018/08/26/23/55/woman-3633737_640.jpg';
-  static const _debateImage = 'https://cdn.pixabay.com/photo/2018/01/17/07/06/laptop-3087585_640.jpg';
-  static const _trendingImage = 'https://cdn.pixabay.com/photo/2017/07/31/11/21/people-2557396_640.jpg';
-  static const _communityImage = 'https://cdn.pixabay.com/photo/2017/08/06/12/06/people-2591874_640.jpg';
+  // Curated Pixabay ILLUSTRATION URLs for banners - multiple per category for variety
+  static const _voiceImages = [
+    'https://cdn.pixabay.com/photo/2017/01/31/17/53/microphone-2025459_640.png',
+    'https://cdn.pixabay.com/photo/2016/10/09/19/19/microphone-1726379_640.png',
+    'https://cdn.pixabay.com/photo/2014/04/02/10/55/microphone-304176_640.png',
+    'https://cdn.pixabay.com/photo/2013/07/12/18/20/microphone-153585_640.png',
+    'https://cdn.pixabay.com/photo/2016/08/16/09/53/international-conference-1597531_640.jpg',
+  ];
+
+  static const _debateImages = [
+    'https://cdn.pixabay.com/photo/2017/01/31/14/03/interview-2024328_640.png',
+    'https://cdn.pixabay.com/photo/2018/03/22/02/37/speech-bubble-3249879_640.png',
+    'https://cdn.pixabay.com/photo/2017/06/20/08/44/speaking-2422015_640.jpg',
+    'https://cdn.pixabay.com/photo/2016/06/03/15/35/presentation-1433291_640.png',
+    'https://cdn.pixabay.com/photo/2017/10/31/00/44/video-conference-2904716_640.png',
+  ];
+
+  static const _trendingImages = [
+    'https://cdn.pixabay.com/photo/2017/06/10/07/18/list-2389219_640.png',
+    'https://cdn.pixabay.com/photo/2016/06/03/15/35/business-1433291_640.png',
+    'https://cdn.pixabay.com/photo/2016/03/26/13/09/cup-1280537_640.png',
+    'https://cdn.pixabay.com/photo/2017/01/29/13/21/mobile-phone-2017658_640.png',
+    'https://cdn.pixabay.com/photo/2016/11/19/15/40/chart-1839304_640.png',
+  ];
+
+  static const _communityImages = [
+    'https://cdn.pixabay.com/photo/2017/01/31/20/53/network-2027147_640.png',
+    'https://cdn.pixabay.com/photo/2016/11/08/05/26/woman-1807533_640.jpg',
+    'https://cdn.pixabay.com/photo/2017/07/31/11/44/group-2557408_640.jpg',
+    'https://cdn.pixabay.com/photo/2016/10/09/08/32/digital-marketing-1725340_640.jpg',
+    'https://cdn.pixabay.com/photo/2019/10/09/07/28/development-4536630_640.png',
+  ];
+
+  /// Pick a random image from a list
+  static String _randomImage(List<String> images) {
+    final index = DateTime.now().microsecond % images.length;
+    return images[index];
+  }
 
   static BannerItem joinDebate({VoidCallback? onAction}) => BannerItem(
         title: 'Your Voice Matters',
@@ -411,7 +444,7 @@ class BoloBanners {
         actionText: 'Join Now',
         onAction: onAction,
         gradientColors: [AppColors.primary, AppColors.primaryDark],
-        imageUrl: _voiceImage,
+        imageUrl: _randomImage(_voiceImages),
       );
 
   static BannerItem startDebate({VoidCallback? onAction}) => BannerItem(
@@ -420,7 +453,7 @@ class BoloBanners {
         actionText: 'Create Room',
         onAction: onAction,
         gradientColors: [AppColors.accent, AppColors.accentDark],
-        imageUrl: _debateImage,
+        imageUrl: _randomImage(_debateImages),
       );
 
   static BannerItem trending({VoidCallback? onAction}) => BannerItem(
@@ -429,7 +462,7 @@ class BoloBanners {
         actionText: 'Explore',
         onAction: onAction,
         gradientColors: [AppColors.coral, AppColors.secondary],
-        imageUrl: _trendingImage,
+        imageUrl: _randomImage(_trendingImages),
       );
 
   static BannerItem community({VoidCallback? onAction}) => BannerItem(
@@ -438,6 +471,6 @@ class BoloBanners {
         actionText: 'Learn More',
         onAction: onAction,
         gradientColors: [AppColors.secondaryDark, AppColors.secondary],
-        imageUrl: _communityImage,
+        imageUrl: _randomImage(_communityImages),
       );
 }
