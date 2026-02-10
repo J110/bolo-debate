@@ -93,8 +93,20 @@ class HomeScreen extends ConsumerWidget {
                 items: [
                   BoloBanners.joinDebate(
                     onAction: () {
-                      // Navigate to discover page to find rooms to join
-                      context.go('/discover');
+                      // Pick a random live room and navigate to its detail page
+                      liveRoomsAsync.whenData((rooms) {
+                        if (rooms.isNotEmpty) {
+                          final randomRoom = rooms[DateTime.now().millisecond % rooms.length];
+                          context.push('/room/${randomRoom.id}/detail');
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('No live rooms available right now'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      });
                     },
                   ),
                   BoloBanners.startDebate(
@@ -102,13 +114,12 @@ class HomeScreen extends ConsumerWidget {
                   ),
                   BoloBanners.trending(
                     onAction: () {
-                      // Navigate to discover page for trending topics
-                      context.go('/discover');
+                      // Navigate to all live rooms screen
+                      context.push('/all-rooms');
                     },
                   ),
                 ],
                 onNotificationTap: () {
-                  // TODO: Implement notifications screen
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Notifications coming soon!'),

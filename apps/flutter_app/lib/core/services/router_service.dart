@@ -10,6 +10,7 @@ import 'package:bolo_debate/features/home/presentation/screens/main_shell.dart';
 import 'package:bolo_debate/features/room/presentation/screens/room_screen.dart';
 import 'package:bolo_debate/features/room/presentation/screens/create_room_screen.dart';
 import 'package:bolo_debate/features/room/presentation/screens/room_detail_screen.dart';
+import 'package:bolo_debate/features/room/presentation/screens/all_rooms_screen.dart';
 import 'package:bolo_debate/features/profile/presentation/screens/profile_screen.dart';
 import 'package:bolo_debate/features/profile/presentation/screens/settings_screen.dart';
 import 'package:bolo_debate/features/friends/presentation/screens/friends_screen.dart';
@@ -112,6 +113,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/create-room',
         name: 'createRoom',
         builder: (context, state) => const CreateRoomScreen(),
+      ),
+      GoRoute(
+        path: '/all-rooms',
+        name: 'allRooms',
+        builder: (context, state) => const AllRoomsScreen(),
       ),
       GoRoute(
         path: '/settings',
