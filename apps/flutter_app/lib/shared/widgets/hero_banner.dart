@@ -421,37 +421,37 @@ class _PageIndicator extends StatelessWidget {
 class BoloBanners {
   BoloBanners._();
 
-  // Curated Pixabay ILLUSTRATION URLs - flat design vector illustrations only
+  // Verified working Pixabay image URLs
   static const _voiceImages = [
-    'https://cdn.pixabay.com/photo/2017/01/31/14/03/interview-2024328_640.png',
-    'https://cdn.pixabay.com/photo/2018/09/24/08/52/businessman-3699418_640.jpg',
-    'https://cdn.pixabay.com/photo/2017/10/10/21/47/blogger-2838945_640.jpg',
-    'https://cdn.pixabay.com/photo/2018/09/24/08/52/businessman-3699419_640.jpg',
-    'https://cdn.pixabay.com/photo/2017/01/31/15/33/linux-2024704_640.png',
+    'https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=640',
+    'https://images.unsplash.com/photo-1589903308904-1010c2294adc?w=640',
+    'https://images.unsplash.com/photo-1516321497487-e288fb19713f?w=640',
+    'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?w=640',
+    'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=640',
   ];
 
   static const _debateImages = [
-    'https://cdn.pixabay.com/photo/2017/01/31/14/03/interview-2024328_640.png',
-    'https://cdn.pixabay.com/photo/2018/09/24/08/31/speech-3699279_640.jpg',
-    'https://cdn.pixabay.com/photo/2017/01/31/15/57/conversation-2024785_640.png',
-    'https://cdn.pixabay.com/photo/2018/09/27/09/22/web-3706561_640.jpg',
-    'https://cdn.pixabay.com/photo/2017/01/31/15/33/linux-2024708_640.png',
+    'https://images.unsplash.com/photo-1552664730-d307ca884978?w=640',
+    'https://images.unsplash.com/photo-1531482615713-2afd69097998?w=640',
+    'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=640',
+    'https://images.unsplash.com/photo-1528901166007-3784c7dd3653?w=640',
+    'https://images.unsplash.com/photo-1515187029135-18ee286d815b?w=640',
   ];
 
   static const _trendingImages = [
-    'https://cdn.pixabay.com/photo/2018/09/27/09/22/web-3706562_640.jpg',
-    'https://cdn.pixabay.com/photo/2017/10/10/21/47/blogger-2838945_640.jpg',
-    'https://cdn.pixabay.com/photo/2018/09/24/08/52/businessman-3699417_640.jpg',
-    'https://cdn.pixabay.com/photo/2016/06/03/13/57/digital-marketing-1433427_640.jpg',
-    'https://cdn.pixabay.com/photo/2017/01/31/15/33/linux-2024707_640.png',
+    'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=640',
+    'https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=640',
+    'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=640',
+    'https://images.unsplash.com/photo-1526628953301-3e589a6a8b74?w=640',
+    'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=640',
   ];
 
   static const _communityImages = [
-    'https://cdn.pixabay.com/photo/2017/01/31/17/34/robot-2025311_640.png',
-    'https://cdn.pixabay.com/photo/2018/09/27/09/22/web-3706563_640.jpg',
-    'https://cdn.pixabay.com/photo/2017/01/31/15/33/linux-2024706_640.png',
-    'https://cdn.pixabay.com/photo/2018/09/24/08/52/businessman-3699416_640.jpg',
-    'https://cdn.pixabay.com/photo/2016/06/03/13/57/digital-marketing-1433427_640.jpg',
+    'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=640',
+    'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=640',
+    'https://images.unsplash.com/photo-1517048676732-d65bc937f952?w=640',
+    'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?w=640',
+    'https://images.unsplash.com/photo-1543269865-cbf427effbad?w=640',
   ];
 
   static BannerItem joinDebate({VoidCallback? onAction}) => BannerItem(
