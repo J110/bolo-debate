@@ -77,10 +77,12 @@ export async function getAvailableGenericTopic(
 
 /**
  * Adds a generic topic to the TopicQueue
+ * @param markAsUsed - if true, marks the topic as used immediately (for room creation)
  */
 export async function addGenericTopicToQueue(
   topic: GenericTopic,
-  language: 'English' | 'Hindi' = 'English'
+  language: 'English' | 'Hindi' = 'English',
+  markAsUsed: boolean = false
 ): Promise<void> {
   const categoryMap = await getCategoryIdMap();
   const categoryId = categoryMap.get(topic.category);
@@ -94,16 +96,7 @@ export async function addGenericTopicToQueue(
   const sideA = language === 'Hindi' ? topic.sideAHindi : topic.sideA;
   const sideB = language === 'Hindi' ? topic.sideBHindi : topic.sideB;
   
-  // Check if already exists in queue
-  const existing = await prisma.topicQueue.findFirst({
-    where: {
-      categoryId,
-      isUsed: false,
-      topicType: 'GENERIC'
-    }
-  });
-  
-  // Check duplicate again
+  // Check duplicate
   const { canUse, reason } = await canUseTopic(title);
   if (!canUse) {
     console.log(`Cannot add generic topic: ${reason}`);
@@ -125,11 +118,13 @@ export async function addGenericTopicToQueue(
       language,
       regionTags: ['National'], // Generic topics are national-level
       trendingScore: 0.5, // Lower priority than trending topics
+      isUsed: markAsUsed,
+      usageCount: markAsUsed ? 1 : 0,
       expiresAt
     }
   });
   
-  console.log(`📚 Added generic topic to queue: "${title.substring(0, 50)}..." (${language})`);
+  console.log(`📚 Added generic topic to queue: "${title.substring(0, 50)}..." (${language})${markAsUsed ? ' [USED]' : ''}`);
 }
 
 /**
@@ -326,6 +321,7 @@ export function getCategoriesNeedingTopics(): string[] {
 /**
  * Picks a generic topic for room creation
  * Returns null if no suitable topic is available
+ * Marks topic as used to prevent duplicates
  */
 export async function pickGenericTopicForRoom(
   categoryId: string,
@@ -352,6 +348,15 @@ export async function pickGenericTopicForRoom(
   });
   
   if (queuedTopic) {
+    // Mark as used immediately to prevent duplicates
+    await prisma.topicQueue.update({
+      where: { id: queuedTopic.id },
+      data: { 
+        isUsed: true,
+        usageCount: { increment: 1 }
+      }
+    });
+    
     return {
       title: queuedTopic.title,
       description: queuedTopic.description || '',
@@ -372,8 +377,8 @@ export async function pickGenericTopicForRoom(
   const topic = await getAvailableGenericTopic(categoryName, language);
   
   if (topic) {
-    // Add to queue for tracking
-    await addGenericTopicToQueue(topic, language);
+    // Add to queue and mark as used immediately for room creation
+    await addGenericTopicToQueue(topic, language, true);
     
     return {
       title: language === 'Hindi' ? topic.titleHindi : topic.title,

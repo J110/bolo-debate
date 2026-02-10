@@ -38,17 +38,19 @@ export function startScheduler(): void {
     }
   });
 
-  // Ensure minimum rooms per region every 5 minutes
-  cron.schedule('*/5 * * * *', async () => {
-    try {
-      await ensureMinimumRoomsPerRegion();
-    } catch (error) {
-      console.error('Error in ensure minimum rooms job:', error);
-    }
-  });
+  // DISABLED: Region-based room creation - now using category-based only
+  // Regions are now treated as tags, not filters
+  // cron.schedule('*/5 * * * *', async () => {
+  //   try {
+  //     await ensureMinimumRoomsPerRegion();
+  //   } catch (error) {
+  //     console.error('Error in ensure minimum rooms job:', error);
+  //   }
+  // });
 
-  // Ensure minimum rooms per category every 5 minutes (offset by 2.5 min from region check)
-  cron.schedule('2-57/5 * * * *', async () => {
+  // Ensure minimum rooms per category every 5 minutes
+  // This is the PRIMARY room creation mechanism
+  cron.schedule('*/5 * * * *', async () => {
     try {
       await ensureMinimumRoomsPerCategory();
     } catch (error) {
@@ -192,8 +194,7 @@ export function startScheduler(): void {
   console.log('Scheduler started with the following jobs:');
   console.log('  - Room lifecycle check: every 30 seconds');
   console.log('  - Ending soon warnings: every minute');
-  console.log('  - Ensure minimum rooms (region): every 5 minutes');
-  console.log('  - Ensure minimum rooms (category): every 5 minutes (offset)');
+  console.log('  - Ensure minimum rooms (category-based): every 5 minutes');
   console.log('  - Bot suggestions: every 3 minutes');
   console.log('  - Ratio balance check: every 15 minutes');
   console.log('  - Trending data refresh: every 2 hours');
