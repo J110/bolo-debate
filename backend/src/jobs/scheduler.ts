@@ -5,10 +5,15 @@ import {
   checkAndEndExpiredRooms,
   sendEndingSoonWarning,
   ensureMinimumRoomsPerRegion,
+  ensureMinimumRoomsPerCategory,
 } from '../services/room.js';
 import { generateBotMessage, generateTopicsFromTrending } from '../services/ai.js';
 import { refreshTrendingData, cleanupExpiredTopics, cleanupExpiredTrendingItems } from '../services/trending.js';
 import { broadcastToRoom } from '../websocket/index.js';
+import { refreshInternationalTopics } from '../services/international.js';
+import { ensureGenericTopicsInQueue, getGenericTopicStats } from '../services/generic-topics.js';
+import { cleanupExpiredDuplicates, getUsedTopicStats } from '../services/duplicate-checker.js';
+import { rebalanceIfNeeded, getRatioStats } from '../services/ratio-enforcer.js';
 
 export function startScheduler(): void {
   console.log('✅ Starting scheduler...');
@@ -39,6 +44,15 @@ export function startScheduler(): void {
       await ensureMinimumRoomsPerRegion();
     } catch (error) {
       console.error('Error in ensure minimum rooms job:', error);
+    }
+  });
+
+  // Ensure minimum rooms per category every 5 minutes (offset by 2.5 min from region check)
+  cron.schedule('2-57/5 * * * *', async () => {
+    try {
+      await ensureMinimumRoomsPerCategory();
+    } catch (error) {
+      console.error('Error in ensure minimum rooms per category job:', error);
     }
   });
 
@@ -83,31 +97,111 @@ export function startScheduler(): void {
       console.log('🗑️ Starting scheduled cleanup...');
       const expiredTopics = await cleanupExpiredTopics();
       const expiredTrending = await cleanupExpiredTrendingItems();
-      console.log(`🗑️ Cleanup: ${expiredTopics} topics, ${expiredTrending} trending items removed`);
+      const expiredDuplicates = await cleanupExpiredDuplicates();
+      console.log(`🗑️ Cleanup: ${expiredTopics} topics, ${expiredTrending} trending, ${expiredDuplicates} duplicate records removed`);
     } catch (error) {
       console.error('Error in cleanup job:', error);
     }
   });
 
-  // Run initial trending fetch on startup (after 30 seconds to let the server stabilize)
+  // ============================================
+  // NEW TOPIC SYSTEM JOBS
+  // ============================================
+
+  // Refresh international topics every 12 hours
+  cron.schedule('0 */12 * * *', async () => {
+    try {
+      console.log('🌍 Starting scheduled international topics refresh...');
+      await refreshInternationalTopics();
+    } catch (error) {
+      console.error('Error in international topics refresh job:', error);
+    }
+  });
+
+  // Ensure generic topics are available every 4 hours
+  cron.schedule('0 */4 * * *', async () => {
+    try {
+      console.log('📚 Ensuring generic topics in queue...');
+      const added = await ensureGenericTopicsInQueue();
+      const stats = await getGenericTopicStats();
+      console.log(`📚 Generic topics: ${added} added, ${stats.inQueue} in queue, ${stats.usedInLast3Months} used recently`);
+    } catch (error) {
+      console.error('Error in generic topics job:', error);
+    }
+  });
+
+  // Check ratio balance every 15 minutes
+  cron.schedule('*/15 * * * *', async () => {
+    try {
+      await rebalanceIfNeeded();
+      const stats = await getRatioStats();
+      console.log(`📊 Ratio check: Local ${(stats.localRatio * 100).toFixed(0)}%, Hindi ${(stats.hindiRatio * 100).toFixed(0)}%, Balanced: ${stats.isBalanced}`);
+    } catch (error) {
+      console.error('Error in ratio rebalancing job:', error);
+    }
+  });
+
+  // Log topic system stats every hour
+  cron.schedule('45 * * * *', async () => {
+    try {
+      const usedStats = await getUsedTopicStats();
+      const genericStats = await getGenericTopicStats();
+      const ratioStats = await getRatioStats();
+      
+      console.log('📈 Topic System Stats:');
+      console.log(`  - Used topics (3mo): ${usedStats.total} total, ${usedStats.byType.TRENDING || 0} trending, ${usedStats.byType.GENERIC || 0} generic, ${usedStats.byType.INTERNATIONAL || 0} international`);
+      console.log(`  - Generic pool: ${genericStats.totalPredefined} predefined, ${genericStats.inQueue} in queue`);
+      console.log(`  - Active rooms: ${ratioStats.distribution.totalRooms}, Local: ${(ratioStats.localRatio * 100).toFixed(0)}%, Hindi: ${(ratioStats.hindiRatio * 100).toFixed(0)}%`);
+    } catch (error) {
+      console.error('Error in stats logging job:', error);
+    }
+  });
+
+  // Run initial setup on startup (after 30 seconds to let the server stabilize)
   setTimeout(async () => {
     try {
-      console.log('📰 Running initial trending data fetch...');
-      const result = await generateTopicsFromTrending();
-      console.log(`📰 Initial fetch: ${result.fetched} items, ${result.converted} topics created`);
+      console.log('🚀 Running initial topic system setup...');
+      
+      // 1. Fetch trending data
+      console.log('📰 Fetching trending data...');
+      const trendingResult = await generateTopicsFromTrending();
+      console.log(`📰 Trending: ${trendingResult.fetched} items, ${trendingResult.converted} topics`);
+      
+      // 2. Ensure generic topics are available
+      console.log('📚 Loading generic topics...');
+      const genericAdded = await ensureGenericTopicsInQueue();
+      console.log(`📚 Generic: ${genericAdded} topics added to queue`);
+      
+      // 3. Fetch international topics
+      console.log('🌍 Fetching international topics...');
+      await refreshInternationalTopics();
+      
+      // 4. Ensure category coverage
+      console.log('📚 Ensuring category coverage...');
+      await ensureMinimumRoomsPerCategory();
+      
+      // 5. Log final stats
+      const stats = await getRatioStats();
+      console.log(`✅ Initial setup complete. Active rooms: ${stats.distribution.totalRooms}`);
+      console.log(`   Local: ${(stats.localRatio * 100).toFixed(0)}%, Hindi: ${(stats.hindiRatio * 100).toFixed(0)}%`);
     } catch (error) {
-      console.error('Error in initial trending fetch:', error);
+      console.error('Error in initial topic system setup:', error);
     }
   }, 30000);
 
   console.log('Scheduler started with the following jobs:');
   console.log('  - Room lifecycle check: every 30 seconds');
   console.log('  - Ending soon warnings: every minute');
-  console.log('  - Ensure minimum rooms: every 5 minutes');
+  console.log('  - Ensure minimum rooms (region): every 5 minutes');
+  console.log('  - Ensure minimum rooms (category): every 5 minutes (offset)');
   console.log('  - Bot suggestions: every 3 minutes');
+  console.log('  - Ratio balance check: every 15 minutes');
   console.log('  - Trending data refresh: every 2 hours');
-  console.log('  - Topic generation from trending: every hour');
+  console.log('  - Generic topics refresh: every 4 hours');
   console.log('  - Cleanup expired topics: every 6 hours');
+  console.log('  - International topics refresh: every 12 hours');
+  console.log('  - Topic generation from trending: every hour');
+  console.log('  - Topic system stats: every hour');
 }
 
 async function sendBotSuggestions(): Promise<void> {

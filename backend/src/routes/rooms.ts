@@ -6,6 +6,9 @@ import { authenticate, optionalAuth, getUser } from '../middleware/auth.js';
 import { getLiveKitToken } from '../services/livekit.js';
 import { broadcastToRoom } from '../websocket/index.js';
 import { getIllustrationForTitle } from '../services/pixabay.js';
+import { getRatioStats } from '../services/ratio-enforcer.js';
+import { getGenericTopicStats, validateCategoryCoverage } from '../services/generic-topics.js';
+import { getUsedTopicStats } from '../services/duplicate-checker.js';
 
 // Supported languages for room discussions
 const SUPPORTED_LANGUAGES = [
@@ -860,6 +863,168 @@ export async function roomRoutes(app: FastifyInstance) {
     return reply.status(201).send({
       success: true,
       data: reaction,
+    });
+  });
+
+  // Get topic system statistics
+  app.get('/stats/topics', async (request, reply) => {
+    try {
+      const [ratioStats, genericStats, usedStats] = await Promise.all([
+        getRatioStats(),
+        getGenericTopicStats(),
+        getUsedTopicStats(),
+      ]);
+
+      // Get rooms by language
+      const [hindiRooms, englishRooms] = await Promise.all([
+        prisma.room.count({ where: { language: 'Hindi', status: { in: ['LIVE', 'SCHEDULED'] } } }),
+        prisma.room.count({ where: { language: 'English', status: { in: ['LIVE', 'SCHEDULED'] } } }),
+      ]);
+
+      // Get category coverage
+      const categories = await prisma.category.findMany({
+        select: { id: true, name: true },
+      });
+
+      const categoryCoverage = await Promise.all(
+        categories.map(async (cat) => {
+          const [live, scheduled] = await Promise.all([
+            prisma.room.count({ where: { categoryId: cat.id, status: 'LIVE' } }),
+            prisma.room.count({ where: { categoryId: cat.id, status: 'SCHEDULED' } }),
+          ]);
+          return {
+            category: cat.name,
+            live,
+            scheduled,
+            covered: live >= 1 && scheduled >= 1,
+          };
+        })
+      );
+
+      return reply.send({
+        success: true,
+        data: {
+          ratios: {
+            localToGeneric: {
+              local: ratioStats.distribution.byTopicType.trending,
+              generic: ratioStats.distribution.byTopicType.generic + ratioStats.distribution.byTopicType.international,
+              percentage: (ratioStats.localRatio * 100).toFixed(1) + '%',
+              target: '50%',
+              balanced: Math.abs(ratioStats.localRatio - 0.5) <= 0.1,
+            },
+            hindiToEnglish: {
+              hindi: hindiRooms,
+              english: englishRooms,
+              percentage: ratioStats.distribution.totalRooms > 0 
+                ? ((hindiRooms / ratioStats.distribution.totalRooms) * 100).toFixed(1) + '%'
+                : '50%',
+              target: '50%',
+              balanced: Math.abs(ratioStats.hindiRatio - 0.5) <= 0.1,
+            },
+          },
+          topicPool: {
+            generic: {
+              totalPredefined: genericStats.totalPredefined,
+              inQueue: genericStats.inQueue,
+              usedInLast3Months: genericStats.usedInLast3Months,
+            },
+            usedTopics: {
+              total: usedStats.total,
+              byType: usedStats.byType,
+              byLanguage: usedStats.byLanguage,
+            },
+          },
+          categoryCoverage,
+          allCategoriesCovered: categoryCoverage.every(c => c.covered),
+          totalActiveRooms: ratioStats.distribution.totalRooms,
+        },
+      });
+    } catch (error) {
+      console.error('Error fetching topic stats:', error);
+      return reply.status(500).send({
+        success: false,
+        error: 'Failed to fetch topic statistics',
+      });
+    }
+  });
+
+  // Validate category coverage for generic topics
+  app.get('/stats/category-health', async (request, reply) => {
+    try {
+      const coverage = await validateCategoryCoverage();
+      
+      return reply.send({
+        success: true,
+        data: {
+          isComplete: coverage.isComplete,
+          minimumTopicsRequired: 10,
+          categories: coverage.categories,
+          actionRequired: coverage.categories
+            .filter(c => !c.hasMinimum)
+            .map(c => ({ category: c.name, recommendation: c.recommendation })),
+        },
+      });
+    } catch (error) {
+      console.error('Error validating category coverage:', error);
+      return reply.status(500).send({
+        success: false,
+        error: 'Failed to validate category coverage',
+      });
+    }
+  });
+
+  // Get rooms grouped by category
+  app.get('/by-category', async (request, reply) => {
+    const { status } = request.query as { status?: string };
+
+    const categories = await prisma.category.findMany({
+      orderBy: { name: 'asc' },
+    });
+
+    const roomsByCategory = await Promise.all(
+      categories.map(async (category) => {
+        const rooms = await prisma.room.findMany({
+          where: status 
+            ? { categoryId: category.id, status: status as 'LIVE' | 'SCHEDULED' | 'ENDED' }
+            : { categoryId: category.id, status: { in: ['LIVE', 'SCHEDULED'] } },
+          include: {
+            region: { select: { id: true, name: true } },
+            _count: { select: { participants: true } },
+          },
+          orderBy: [
+            { status: 'asc' },
+            { scheduledAt: 'asc' },
+          ],
+          take: 10,
+        });
+
+        return {
+          category: {
+            id: category.id,
+            name: category.name,
+            icon: category.icon,
+          },
+          liveCount: rooms.filter(r => r.status === 'LIVE').length,
+          scheduledCount: rooms.filter(r => r.status === 'SCHEDULED').length,
+          rooms: rooms.map(room => ({
+            id: room.id,
+            title: room.title,
+            status: room.status,
+            language: room.language,
+            regionId: room.regionId,
+            regionName: room.region?.name,
+            participantCount: room._count.participants,
+            scheduledAt: room.scheduledAt,
+            startedAt: room.startedAt,
+            endsAt: room.endsAt,
+          })),
+        };
+      })
+    );
+
+    return reply.send({
+      success: true,
+      data: roomsByCategory,
     });
   });
 }

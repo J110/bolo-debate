@@ -93,6 +93,13 @@ enum ParticipantSide {
   NEUTRAL
 }
 
+// Topic type for categorizing source of topics
+enum TopicType {
+  TRENDING      // From news/RSS feeds (local/national)
+  GENERIC       // Evergreen debate topics
+  INTERNATIONAL // Global topics interesting to Indian audience
+}
+
 enum ParticipantRole {
   HOST
   SPEAKER
@@ -270,16 +277,23 @@ model NewsSource {
   @@index([fetchedAt])
 }
 
-// Debate topics generated from trending content
+// Debate topics generated from trending content or predefined
 model TopicQueue {
   id             String    @id @default(uuid()) @db.Uuid
-  regionId       String    @db.Uuid
   categoryId     String    @db.Uuid
   title          String
   description    String?
   sideALabel     String
   sideBLabel     String
   subtopics      Json?
+  
+  // Topic classification
+  topicType      TopicType @default(TRENDING)  // TRENDING, GENERIC, or INTERNATIONAL
+  regionTags     String[]  @default([])        // Region tags (e.g., ["Mumbai", "National", "International"])
+  language       String    @default("English") // Topic language (English or Hindi)
+  
+  // Legacy field - kept for backward compatibility during migration
+  regionId       String?   @db.Uuid
   
   // Source tracking
   sourceHeadline String?           // Original news headline that inspired this topic
@@ -297,8 +311,26 @@ model TopicQueue {
   expiresAt      DateTime?         // Hard expiry - topic won't be used after this
   lastRefreshedAt DateTime @default(now()) // Last time trending score was updated
 
-  @@index([regionId, categoryId, isUsed])
+  @@index([categoryId, isUsed])
+  @@index([topicType])
+  @@index([language])
   @@index([createdAt])
   @@index([expiresAt])
   @@index([trendingScore])
+}
+
+// Track used topics for 3-month duplicate prevention
+model UsedTopic {
+  id            String   @id @default(uuid()) @db.Uuid
+  titleHash     String   @unique  // SHA256 hash of normalized title
+  originalTitle String            // Original title for debugging
+  categoryId    String   @db.Uuid
+  topicType     TopicType
+  language      String   @default("English")
+  usedAt        DateTime @default(now())
+  expiresAt     DateTime          // usedAt + 3 months - auto cleanup after this
+
+  @@index([categoryId])
+  @@index([expiresAt])
+  @@index([usedAt])
 }

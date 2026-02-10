@@ -102,7 +102,7 @@ export async function regionRoutes(app: FastifyInstance) {
             count: t._count,
           })),
           byRegion: topicsByRegion.map(t => ({
-            region: regionMap.get(t.regionId) || 'Unknown',
+            region: t.regionId ? regionMap.get(t.regionId) || 'Unknown' : 'National',
             count: t._count,
           })),
         },

@@ -3,10 +3,14 @@ import { redis, REDIS_KEYS } from '../config/redis.js';
 import { broadcastToRoom } from '../websocket/index.js';
 import { generateDebateTopics, generateDebateSuggestions, generateSubtopics, translateTopicToHindi } from './ai.js';
 import { getIllustrationForTitle } from './pixabay.js';
+import { pickBalancedTopic, getRatioStats } from './ratio-enforcer.js';
+import { canUseTopic, recordTopicUsage, cleanupExpiredDuplicates } from './duplicate-checker.js';
 
 const ROOM_DURATION_MS = 30 * 60 * 1000; // 30 minutes
 const MIN_LIVE_ROOMS_PER_REGION = 2; // At least 2 live rooms per region
 const MIN_SCHEDULED_ROOMS_PER_REGION = 2; // At least 2 upcoming rooms per region
+const MIN_LIVE_ROOMS_PER_CATEGORY = 1; // At least 1 live room per category
+const MIN_SCHEDULED_ROOMS_PER_CATEGORY = 1; // At least 1 upcoming room per category
 const ROOM_INTERVAL_MINUTES = 6; // New room every 6 minutes
 
 // Randomly select Hindi or English for room language
@@ -217,6 +221,166 @@ export async function ensureMinimumRoomsPerRegion(): Promise<void> {
       await createStaggeredRooms(region.id, liveRoomsNeeded, upcomingNeeded, regionIndex);
     } else {
       console.log(`  ✓ ${region.name}: has ${liveCount} live, ${scheduledCount} scheduled`);
+    }
+  }
+}
+
+/**
+ * Ensure at least 1 live and 1 upcoming room per category
+ * This is the primary coverage guarantee for the new topic system
+ */
+export async function ensureMinimumRoomsPerCategory(): Promise<void> {
+  const categories = await prisma.category.findMany();
+  const regions = await prisma.region.findMany();
+  const now = new Date();
+  
+  // Get the "National" region as default for category-based rooms
+  const nationalRegion = regions.find(r => r.name === 'National') || regions[0];
+  
+  console.log(`📚 Ensuring rooms for ${categories.length} categories`);
+  
+  // Log current ratio stats
+  const ratioStats = await getRatioStats();
+  console.log(`  📊 Current ratios: Local ${(ratioStats.localRatio * 100).toFixed(0)}%, Hindi ${(ratioStats.hindiRatio * 100).toFixed(0)}%`);
+  
+  // Cleanup expired duplicates periodically
+  await cleanupExpiredDuplicates();
+  
+  for (let categoryIndex = 0; categoryIndex < categories.length; categoryIndex++) {
+    const category = categories[categoryIndex];
+    
+    // Count live rooms in this category
+    const liveCount = await prisma.room.count({
+      where: { categoryId: category.id, status: 'LIVE' },
+    });
+    
+    // Count upcoming scheduled rooms (next 2 hours)
+    const scheduledCount = await prisma.room.count({
+      where: {
+        categoryId: category.id,
+        status: 'SCHEDULED',
+        scheduledAt: {
+          gte: now,
+          lte: new Date(now.getTime() + 2 * 60 * 60 * 1000),
+        },
+      },
+    });
+    
+    const liveNeeded = Math.max(0, MIN_LIVE_ROOMS_PER_CATEGORY - liveCount);
+    const upcomingNeeded = Math.max(0, MIN_SCHEDULED_ROOMS_PER_CATEGORY - scheduledCount);
+    
+    if (liveNeeded > 0 || upcomingNeeded > 0) {
+      console.log(`  📚 ${category.name}: creating ${liveNeeded} live, ${upcomingNeeded} scheduled`);
+      await createCategoryBasedRooms(category.id, nationalRegion.id, liveNeeded, upcomingNeeded, categoryIndex);
+    } else {
+      console.log(`  ✓ ${category.name}: has ${liveCount} live, ${scheduledCount} scheduled`);
+    }
+  }
+}
+
+/**
+ * Create rooms for a specific category using the balanced topic picker
+ */
+async function createCategoryBasedRooms(
+  categoryId: string,
+  regionId: string,
+  liveNeeded: number,
+  scheduledNeeded: number,
+  categoryIndex: number = 0
+): Promise<void> {
+  const category = await prisma.category.findUnique({ where: { id: categoryId } });
+  const region = await prisma.region.findUnique({ where: { id: regionId } });
+  
+  if (!category || !region) {
+    console.log('Category or region not found, skipping');
+    return;
+  }
+  
+  const now = new Date();
+  
+  // Offset based on category index to stagger rooms across categories
+  const categoryOffset = categoryIndex * 3;
+  
+  // Create LIVE rooms
+  for (let i = 0; i < liveNeeded; i++) {
+    try {
+      // Use balanced topic picker
+      const topic = await pickBalancedTopic(categoryId, [region.name, 'National']);
+      
+      if (topic) {
+        // Fetch illustration
+        const illustrationUrl = await getIllustrationForTitle(topic.title);
+        
+        // Stagger start times
+        const minutesAgo = categoryOffset + 3 + (i * ROOM_INTERVAL_MINUTES);
+        const startedAt = new Date(now.getTime() - minutesAgo * 60 * 1000);
+        const endsAt = new Date(startedAt.getTime() + ROOM_DURATION_MS);
+        
+        // Only create if room would still be live
+        if (endsAt > now) {
+          await prisma.room.create({
+            data: {
+              title: topic.title,
+              description: topic.description,
+              regionId,
+              categoryId,
+              type: 'DEBATE',
+              sideALabel: topic.sideALabel,
+              sideBLabel: topic.sideBLabel,
+              language: topic.language,
+              illustrationUrl,
+              scheduledAt: startedAt,
+              startedAt: startedAt,
+              endsAt: endsAt,
+              status: 'LIVE',
+              isAiHosted: true,
+            },
+          });
+          
+          console.log(`    Created LIVE [${category.name}] (${topic.language}, ${topic.topicType}): ${topic.title.substring(0, 40)}...`);
+        }
+      }
+    } catch (error) {
+      console.error('Error creating category-based live room:', error);
+    }
+  }
+  
+  // Create SCHEDULED rooms
+  for (let i = 0; i < scheduledNeeded; i++) {
+    try {
+      // Use balanced topic picker
+      const topic = await pickBalancedTopic(categoryId, [region.name, 'National']);
+      
+      if (topic) {
+        // Fetch illustration
+        const illustrationUrl = await getIllustrationForTitle(topic.title);
+        
+        // Stagger scheduled times
+        const minutesFromNow = categoryOffset + 3 + (i * ROOM_INTERVAL_MINUTES);
+        const scheduledAt = new Date(now.getTime() + minutesFromNow * 60 * 1000);
+        scheduledAt.setSeconds(0, 0);
+        
+        await prisma.room.create({
+          data: {
+            title: topic.title,
+            description: topic.description,
+            regionId,
+            categoryId,
+            type: 'DEBATE',
+            sideALabel: topic.sideALabel,
+            sideBLabel: topic.sideBLabel,
+            language: topic.language,
+            illustrationUrl,
+            scheduledAt,
+            status: 'SCHEDULED',
+            isAiHosted: true,
+          },
+        });
+        
+        console.log(`    Created SCHEDULED [${category.name}] (${topic.language}, ${topic.topicType}): ${topic.title.substring(0, 40)}... (in ${minutesFromNow}m)`);
+      }
+    } catch (error) {
+      console.error('Error creating category-based scheduled room:', error);
     }
   }
 }

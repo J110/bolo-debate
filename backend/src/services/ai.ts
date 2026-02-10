@@ -993,6 +993,104 @@ Respond in JSON format:
 }
 
 /**
+ * Convert a single headline to a debate topic (for international/custom topics)
+ */
+export async function convertTrendingToTopic(
+  headline: string,
+  summary: string = ''
+): Promise<{
+  title: string;
+  description: string;
+  sideA: string;
+  sideB: string;
+} | null> {
+  if (!hasGroq && !hasOpenAI) {
+    console.log('⚠️ No AI provider available for topic conversion');
+    return null;
+  }
+
+  const prompt = `Convert this news headline into an engaging debate topic.
+
+Headline: "${headline}"
+${summary ? `Summary: ${summary}` : ''}
+
+Generate a debate topic with:
+- title: A thought-provoking question that can be debated (max 100 chars)
+- description: Brief context about why this is relevant (max 200 chars)
+- sideA: Clear position label (max 30 chars)
+- sideB: Clear opposing position (max 30 chars)
+
+Rules:
+1. Topic must be in ENGLISH only
+2. Topic should be DEBATABLE - there must be valid arguments on both sides
+3. Avoid topics that are too politically sensitive or divisive
+4. If the headline doesn't make a good debate topic, respond with null
+
+Respond in JSON format:
+{
+  "title": "Should...",
+  "description": "...",
+  "sideA": "...",
+  "sideB": "...",
+  "skipped": false
+}
+
+Or if not suitable:
+{ "skipped": true }`;
+
+  const messages = [
+    {
+      role: 'system' as const,
+      content: 'You are an expert at converting news headlines into balanced, engaging debate topics. Always respond with valid JSON.',
+    },
+    {
+      role: 'user' as const,
+      content: prompt,
+    },
+  ];
+
+  try {
+    let content: string | null = null;
+
+    if (hasGroq && groq) {
+      const response = await groq.chat.completions.create({
+        model: GROQ_MODEL,
+        messages,
+        response_format: { type: 'json_object' },
+        temperature: 0.7,
+        max_tokens: 500,
+      });
+      content = response.choices[0]?.message?.content;
+    } else if (hasOpenAI && openai) {
+      const response = await openai.chat.completions.create({
+        model: 'gpt-3.5-turbo',
+        messages,
+        response_format: { type: 'json_object' },
+        temperature: 0.7,
+        max_tokens: 500,
+      });
+      content = response.choices[0]?.message?.content;
+    }
+
+    if (!content) return null;
+
+    const parsed = JSON.parse(content);
+    
+    if (parsed.skipped) return null;
+
+    return {
+      title: parsed.title,
+      description: parsed.description,
+      sideA: parsed.sideA || parsed.sideALabel,
+      sideB: parsed.sideB || parsed.sideBLabel,
+    };
+  } catch (error) {
+    console.error('Error converting headline to topic:', error);
+    return null;
+  }
+}
+
+/**
  * Get default region ID (National)
  */
 async function getDefaultRegionId(): Promise<string> {
