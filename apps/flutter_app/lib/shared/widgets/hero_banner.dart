@@ -399,11 +399,11 @@ class _PageIndicator extends StatelessWidget {
 class BoloBanners {
   BoloBanners._();
 
-  // Curated Pixabay illustration URLs for banners (full illustrations, not icons)
-  static const _voiceImage = 'https://cdn.pixabay.com/photo/2020/08/03/09/51/speaker-5459671_640.jpg';
+  // Curated Pixabay illustration URLs for banners
+  static const _voiceImage = 'https://cdn.pixabay.com/photo/2018/08/26/23/55/woman-3633737_640.jpg';
   static const _debateImage = 'https://cdn.pixabay.com/photo/2018/01/17/07/06/laptop-3087585_640.jpg';
   static const _trendingImage = 'https://cdn.pixabay.com/photo/2017/07/31/11/21/people-2557396_640.jpg';
-  static const _communityImage = 'https://cdn.pixabay.com/photo/2019/10/09/07/28/development-4536630_640.png';
+  static const _communityImage = 'https://cdn.pixabay.com/photo/2017/08/06/12/06/people-2591874_640.jpg';
 
   static BannerItem joinDebate({VoidCallback? onAction}) => BannerItem(
         title: 'Your Voice Matters',
