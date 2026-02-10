@@ -75,77 +75,101 @@ const STOP_WORDS = new Set([
   'एक', 'यह', 'वह', 'जो', 'कि', 'लिए', 'साथ', 'होना', 'करना', 'भारत',
 ]);
 
-// High-value keywords that should be prioritized
-const PRIORITY_KEYWORDS: Record<string, string> = {
-  // Sports
-  'cricket': 'cricket player',
-  'ipl': 'cricket',
-  'football': 'football soccer',
-  'soccer': 'football soccer',
-  'basketball': 'basketball',
-  'hockey': 'hockey',
-  'tennis': 'tennis',
-  'olympics': 'olympics medal',
-  'athlete': 'athlete running',
-  'sports': 'sports',
+// High-value keywords mapped to diverse search terms
+// Each keyword has multiple search variations for diversity
+const PRIORITY_KEYWORDS: Record<string, string[]> = {
+  // Sports - diverse terms
+  'cricket': ['cricket bat ball', 'cricket stadium', 'cricket player'],
+  'ipl': ['cricket trophy', 'cricket match', 'sports stadium'],
+  'football': ['football soccer ball', 'soccer player', 'football stadium'],
+  'soccer': ['soccer ball goal', 'soccer match', 'football player'],
+  'basketball': ['basketball hoop', 'basketball player', 'basketball court'],
+  'hockey': ['hockey stick puck', 'ice hockey', 'field hockey'],
+  'tennis': ['tennis racket ball', 'tennis court', 'tennis player'],
+  'olympics': ['olympics medal', 'olympic rings', 'sports champion'],
+  'athlete': ['athlete running', 'sports fitness', 'marathon runner'],
+  'sports': ['sports equipment', 'athletics', 'fitness exercise'],
+  'injury': ['medical bandage', 'hospital care', 'health treatment'],
   
-  // Technology
-  'ai': 'artificial intelligence robot',
-  'robot': 'robot',
-  'social media': 'social media phone',
-  'influencer': 'influencer phone',
-  'cyber': 'cybersecurity hacker',
-  'hacking': 'cybersecurity hacker',
-  'bitcoin': 'bitcoin cryptocurrency',
-  'crypto': 'cryptocurrency',
-  'smartphone': 'smartphone mobile',
-  'internet': 'internet connection',
+  // Technology - diverse terms
+  'ai': ['artificial intelligence', 'robot technology', 'machine learning'],
+  'robot': ['robot machine', 'automation technology', 'futuristic robot'],
+  'technology': ['technology innovation', 'digital future', 'tech devices'],
+  'social media': ['social network', 'online community', 'digital communication'],
+  'influencer': ['online personality', 'social media star', 'digital marketing'],
+  'cyber': ['cybersecurity', 'digital security', 'network protection'],
+  'hacking': ['computer security', 'cyber attack', 'digital crime'],
+  'bitcoin': ['cryptocurrency', 'digital currency', 'blockchain'],
+  'crypto': ['cryptocurrency coin', 'digital money', 'blockchain technology'],
+  'smartphone': ['mobile phone', 'smartphone device', 'digital communication'],
+  'internet': ['world wide web', 'online connection', 'digital network'],
+  'privacy': ['data protection', 'security lock', 'personal privacy'],
+  'data': ['digital data', 'information technology', 'database'],
   
-  // Politics
-  'election': 'election voting',
-  'vote': 'voting ballot',
-  'democracy': 'democracy vote',
-  'parliament': 'parliament government',
-  'law': 'law justice',
-  'court': 'court justice',
-  'police': 'police officer',
-  'military': 'military soldier',
-  'war': 'war conflict',
-  'peace': 'peace dove',
+  // Politics & Government - diverse terms
+  'election': ['voting ballot', 'election campaign', 'democracy vote'],
+  'vote': ['ballot box', 'voting rights', 'election poll'],
+  'democracy': ['democratic government', 'freedom rights', 'political system'],
+  'parliament': ['government building', 'legislative assembly', 'politics'],
+  'law': ['justice scales', 'legal court', 'law books'],
+  'court': ['courtroom justice', 'legal gavel', 'judge law'],
+  'police': ['law enforcement', 'security officer', 'public safety'],
+  'military': ['armed forces', 'soldier army', 'defense military'],
+  'war': ['conflict battle', 'peace war', 'military combat'],
+  'peace': ['peace dove', 'harmony unity', 'world peace'],
+  'policy': ['government policy', 'political decision', 'public administration'],
+  'regulation': ['rules compliance', 'legal regulation', 'government control'],
   
-  // Business
-  'stock': 'stock market chart',
-  'market': 'stock market',
-  'economy': 'economy growth',
-  'tax': 'tax money',
-  'bank': 'bank money',
-  'investment': 'investment growth',
-  'startup': 'startup business',
-  'manufacturing': 'factory manufacturing',
-  'energy': 'energy power',
-  'oil': 'oil petroleum',
+  // Business & Finance - diverse terms
+  'stock': ['stock market graph', 'trading finance', 'investment chart'],
+  'market': ['financial market', 'business trading', 'economy graph'],
+  'economy': ['economic growth', 'finance money', 'business success'],
+  'tax': ['tax money', 'financial documents', 'government revenue'],
+  'bank': ['banking finance', 'money savings', 'financial institution'],
+  'banking': ['bank building', 'financial services', 'money transfer'],
+  'foreclosure': ['house sale', 'property auction', 'real estate'],
+  'investment': ['investment growth', 'financial planning', 'money savings'],
+  'startup': ['business startup', 'entrepreneur', 'innovation company'],
+  'manufacturing': ['factory industry', 'production line', 'industrial manufacturing'],
+  'energy': ['power energy', 'electricity', 'renewable energy'],
+  'oil': ['petroleum industry', 'oil barrel', 'energy fuel'],
+  'brand': ['brand marketing', 'company logo', 'business identity'],
+  'company': ['corporate business', 'office building', 'business meeting'],
+  'aggressive': ['intense competition', 'business strategy', 'competitive market'],
   
-  // Entertainment
-  'movie': 'movie cinema',
-  'film': 'film cinema',
-  'music': 'music concert',
-  'bollywood': 'bollywood dance',
-  'gaming': 'gaming controller',
-  'netflix': 'streaming television',
+  // Entertainment & Media - diverse terms
+  'movie': ['cinema film', 'movie theater', 'film production'],
+  'film': ['filmmaking camera', 'movie reel', 'cinema entertainment'],
+  'celebrity': ['famous star', 'entertainment celebrity', 'media personality'],
+  'endorsement': ['advertising promotion', 'brand ambassador', 'marketing campaign'],
+  'music': ['musical instrument', 'concert performance', 'music notes'],
+  'bollywood': ['indian cinema', 'dance performance', 'film industry'],
+  'gaming': ['video game controller', 'esports gaming', 'game console'],
+  'netflix': ['streaming service', 'television entertainment', 'online video'],
+  'release': ['product launch', 'new release', 'premiere event'],
+  'strategic': ['business strategy', 'planning chess', 'tactical decision'],
   
-  // Social
-  'marriage': 'wedding couple',
-  'education': 'education school',
-  'health': 'health medical',
-  'hospital': 'hospital medical',
-  'climate': 'climate environment',
-  'pollution': 'pollution environment',
-  'farmer': 'farmer agriculture',
-  'women': 'women empowerment',
+  // Social Issues - diverse terms
+  'marriage': ['wedding ceremony', 'couple love', 'marriage celebration'],
+  'wedding': ['bride groom', 'wedding rings', 'marriage ceremony'],
+  'education': ['school learning', 'education books', 'student classroom'],
+  'school': ['classroom education', 'student learning', 'academic school'],
+  'health': ['medical healthcare', 'wellness health', 'doctor patient'],
+  'hospital': ['medical facility', 'healthcare hospital', 'doctor nurse'],
+  'doctor': ['medical professional', 'healthcare doctor', 'physician'],
+  'climate': ['climate change', 'environment nature', 'global warming'],
+  'pollution': ['environmental pollution', 'air quality', 'waste management'],
+  'environment': ['nature conservation', 'green environment', 'ecology'],
+  'farmer': ['agriculture farming', 'rural farmer', 'crop field'],
+  'agriculture': ['farming tractor', 'crop harvest', 'rural agriculture'],
+  'women': ['female empowerment', 'women rights', 'gender equality'],
+  'revive': ['recovery growth', 'renewal rebirth', 'restoration'],
+  'struggling': ['challenge difficulty', 'business struggle', 'financial trouble'],
 };
 
 /**
  * Extract the most relevant keyword from a room title for image search
+ * Returns a random search term from matched keywords for diversity
  */
 export function extractKeyword(title: string): string {
   const lowerTitle = title.toLowerCase();
@@ -154,25 +178,31 @@ export function extractKeyword(title: string): string {
   const sortedPriorities = Object.entries(PRIORITY_KEYWORDS)
     .sort((a, b) => b[0].length - a[0].length);
   
-  for (const [keyword, searchTerm] of sortedPriorities) {
+  for (const [keyword, searchTerms] of sortedPriorities) {
     if (lowerTitle.includes(keyword)) {
-      return searchTerm;
+      // Pick a random search term for diversity
+      const randomIndex = Math.floor(Math.random() * searchTerms.length);
+      return searchTerms[randomIndex];
     }
   }
   
-  // Fall back to extracting the most meaningful word
+  // Fall back to extracting meaningful words from title
   const words = title
     .toLowerCase()
     .replace(/[^\w\s]/g, '') // Remove punctuation
     .split(/\s+/)
     .filter(word => word.length > 3 && !STOP_WORDS.has(word));
   
-  // Return the longest word (often the most specific/meaningful)
+  // Use the longest word as search term (most specific)
   if (words.length > 0) {
-    return words.sort((a, b) => b.length - a.length)[0];
+    const sortedWords = words.sort((a, b) => b.length - a.length);
+    // Return top word with some variation
+    return sortedWords[0];
   }
   
-  return 'discussion debate';
+  // Final fallback - generic but varied terms
+  const fallbacks = ['discussion forum', 'debate conversation', 'talk speech', 'opinion idea'];
+  return fallbacks[Math.floor(Math.random() * fallbacks.length)];
 }
 
 interface PixabayImage {
@@ -193,7 +223,7 @@ interface PixabayResponse {
  */
 export async function searchIllustrations(
   keyword: string,
-  count: number = 5
+  count: number = 10
 ): Promise<string[]> {
   const apiKey = config.pixabay?.apiKey;
   
@@ -203,13 +233,15 @@ export async function searchIllustrations(
   }
   
   try {
+    // Request more results for better diversity
     const params = new URLSearchParams({
       key: apiKey,
-      q: `simple ${keyword} illustration`,
+      q: `simple ${keyword}`,
       image_type: 'illustration',
       orientation: 'horizontal',
-      per_page: count.toString(),
+      per_page: Math.max(count, 15).toString(), // Get at least 15 for diversity
       safesearch: 'true',
+      editors_choice: 'true', // Prefer higher quality curated images
     });
     
     const response = await fetch(`${PIXABAY_API_URL}?${params}`);

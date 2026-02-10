@@ -171,12 +171,6 @@ class HomeScreen extends ConsumerWidget {
                         ),
                       ],
                     ),
-                    TextButton(
-                      onPressed: () {
-                        // TODO: See all live rooms
-                      },
-                      child: const Text('See all'),
-                    ),
                   ],
                 ),
               ),
@@ -246,12 +240,6 @@ class HomeScreen extends ConsumerWidget {
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
                       ],
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        // TODO: See all scheduled rooms
-                      },
-                      child: const Text('See all'),
                     ),
                   ],
                 ),
