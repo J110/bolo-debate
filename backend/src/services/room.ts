@@ -321,10 +321,12 @@ async function createCategoryBasedRooms(
           await prisma.room.create({
             data: {
               title: topic.title,
+              originalTitle: topic.originalTitle, // English title for duplicate checking
               description: topic.description,
               regionId,
               categoryId,
               type: 'DEBATE',
+              topicType: topic.topicType, // Store for ratio tracking
               sideALabel: topic.sideALabel,
               sideBLabel: topic.sideBLabel,
               language: topic.language,
@@ -363,10 +365,12 @@ async function createCategoryBasedRooms(
         await prisma.room.create({
           data: {
             title: topic.title,
+            originalTitle: topic.originalTitle, // English title for duplicate checking
             description: topic.description,
             regionId,
             categoryId,
             type: 'DEBATE',
+            topicType: topic.topicType, // Store for ratio tracking
             sideALabel: topic.sideALabel,
             sideBLabel: topic.sideBLabel,
             language: topic.language,

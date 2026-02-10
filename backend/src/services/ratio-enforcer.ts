@@ -5,11 +5,13 @@
  * - 50:50 Local (TRENDING) vs Generic (GENERIC + INTERNATIONAL) topics
  * - 50:50 Hindi vs English language
  * - No duplicate topics at any time
+ * 
+ * Uses simple alternating counters for strict 50:50 enforcement
  */
 
 import { prisma } from '../config/database.js';
 import { TopicType } from '@prisma/client';
-import { canUseTopic, recordTopicUsage } from './duplicate-checker.js';
+import { canUseTopic, recordTopicUsage, isActiveTopic } from './duplicate-checker.js';
 import { pickGenericTopicForRoom } from './generic-topics.js';
 import { pickInternationalTopicForRoom } from './international.js';
 import { translateTopicToHindi } from './ai.js';
@@ -22,6 +24,10 @@ const TARGET_RATIOS = {
 
 // Tolerance for ratio enforcement (within 10% is acceptable)
 const RATIO_TOLERANCE = 0.1;
+
+// Simple counters for alternation (reset on server restart, but that's fine)
+let topicTypeCounter = 0; // Even = trending, Odd = generic
+let languageCounter = 0; // Even = English, Odd = Hindi
 
 interface RoomDistribution {
   totalRooms: number;
@@ -49,11 +55,10 @@ export async function getCurrentDistribution(): Promise<RoomDistribution> {
     },
     select: {
       language: true,
-      title: true,
+      topicType: true, // Use Room's topicType directly
     }
   });
   
-  // Get topic types from TopicQueue based on titles
   const distribution: RoomDistribution = {
     totalRooms: activeRooms.length,
     byLanguage: {
@@ -75,22 +80,17 @@ export async function getCurrentDistribution(): Promise<RoomDistribution> {
       distribution.byLanguage.English++;
     }
     
-    // Try to find topic type from queue (approximate by checking if topic exists in queue)
-    const topic = await prisma.topicQueue.findFirst({
-      where: { title: room.title },
-      select: { topicType: true }
-    });
+    // Use the room's topicType directly (no lookup needed)
+    const topicType = room.topicType;
     
-    if (topic) {
-      if (topic.topicType === 'TRENDING') {
-        distribution.byTopicType.trending++;
-      } else if (topic.topicType === 'GENERIC') {
-        distribution.byTopicType.generic++;
-      } else {
-        distribution.byTopicType.international++;
-      }
+    if (topicType === 'TRENDING') {
+      distribution.byTopicType.trending++;
+    } else if (topicType === 'GENERIC') {
+      distribution.byTopicType.generic++;
+    } else if (topicType === 'INTERNATIONAL') {
+      distribution.byTopicType.international++;
     } else {
-      // Default to trending if not found in queue
+      // Default to trending if null (legacy rooms)
       distribution.byTopicType.trending++;
     }
   }
@@ -100,66 +100,30 @@ export async function getCurrentDistribution(): Promise<RoomDistribution> {
 
 /**
  * Calculate what type of topic and language should be picked next
+ * Uses simple alternation for strict 50:50 ratio
  */
 export async function getNextTopicRequirements(): Promise<{
   preferredTopicType: 'local' | 'generic';
   preferredLanguage: 'Hindi' | 'English';
 }> {
-  const dist = await getCurrentDistribution();
-  
-  // Calculate current ratios
-  const localCount = dist.byTopicType.trending;
-  const genericCount = dist.byTopicType.generic + dist.byTopicType.international;
-  const totalTopicType = localCount + genericCount;
-  
-  const localRatio = totalTopicType > 0 ? localCount / totalTopicType : 0.5;
-  const hindiRatio = dist.totalRooms > 0 
-    ? dist.byLanguage.Hindi / dist.totalRooms 
-    : 0.5;
-  
-  // Determine what's needed to balance ratios
+  // Simple alternation: even = local/trending, odd = generic
   const preferredTopicType: 'local' | 'generic' = 
-    localRatio > TARGET_RATIOS.localVsGeneric + RATIO_TOLERANCE ? 'generic' :
-    localRatio < TARGET_RATIOS.localVsGeneric - RATIO_TOLERANCE ? 'local' :
-    Math.random() < 0.5 ? 'local' : 'generic';
+    topicTypeCounter % 2 === 0 ? 'local' : 'generic';
   
+  // Simple alternation: even = English, odd = Hindi
   const preferredLanguage: 'Hindi' | 'English' = 
-    hindiRatio > TARGET_RATIOS.hindiVsEnglish + RATIO_TOLERANCE ? 'English' :
-    hindiRatio < TARGET_RATIOS.hindiVsEnglish - RATIO_TOLERANCE ? 'Hindi' :
-    Math.random() < 0.5 ? 'Hindi' : 'English';
+    languageCounter % 2 === 0 ? 'English' : 'Hindi';
+  
+  // Increment counters for next call
+  topicTypeCounter++;
+  languageCounter++;
+  
+  console.log(`  📊 Counter state: topicType=${topicTypeCounter} (${preferredTopicType}), lang=${languageCounter} (${preferredLanguage})`);
   
   return { preferredTopicType, preferredLanguage };
 }
 
-/**
- * Check if a topic title is already used in active rooms (live or scheduled)
- */
-async function isTopicInActiveRooms(title: string): Promise<boolean> {
-  const normalizedTitle = title.toLowerCase().trim();
-  
-  const activeRoom = await prisma.room.findFirst({
-    where: {
-      status: { in: ['LIVE', 'SCHEDULED'] },
-    },
-    select: { title: true }
-  });
-  
-  // Check all active rooms for similar titles
-  const activeRooms = await prisma.room.findMany({
-    where: {
-      status: { in: ['LIVE', 'SCHEDULED'] },
-    },
-    select: { title: true }
-  });
-  
-  for (const room of activeRooms) {
-    if (room.title.toLowerCase().trim() === normalizedTitle) {
-      return true;
-    }
-  }
-  
-  return false;
-}
+// isTopicInActiveRooms is now handled by duplicate-checker.ts isActiveTopic()
 
 /**
  * Pick a trending topic from the queue
@@ -176,34 +140,36 @@ async function pickTrendingTopic(categoryId: string): Promise<{
     where: {
       categoryId,
       isUsed: false,
-      topicType: 'TRENDING', // Only get trending topics
+      topicType: 'TRENDING',
       OR: [
         { expiresAt: null },
         { expiresAt: { gt: new Date() } }
       ]
     },
     orderBy: { trendingScore: 'desc' },
-    take: 10 // Get top 10 to check for duplicates
+    take: 20 // Get more to find a non-duplicate
   });
   
+  console.log(`    📰 Found ${trendingTopics.length} trending topics in queue for category`);
+  
   for (const topic of trendingTopics) {
-    // Check for duplicates in active rooms
-    const isInActiveRooms = await isTopicInActiveRooms(topic.title);
-    if (isInActiveRooms) continue;
-    
-    // Check for duplicates in used topics (3 month)
-    const { canUse } = await canUseTopic(topic.title);
-    if (!canUse) continue;
+    // Check for duplicates/similar topics in active rooms
+    const isDuplicate = await isActiveTopic(topic.title);
+    if (isDuplicate) {
+      console.log(`    ⏭️ Skipping duplicate: ${topic.title.substring(0, 40)}...`);
+      continue;
+    }
     
     // Mark as used
     await prisma.topicQueue.update({
       where: { id: topic.id },
       data: { 
         isUsed: true,
-        usageCount: { increment: 1 },
-        topicType: 'TRENDING' // Set type for legacy topics
+        usageCount: { increment: 1 }
       }
     });
+    
+    console.log(`    ✅ Selected trending: ${topic.title.substring(0, 40)}...`);
     
     return {
       title: topic.title,
@@ -214,18 +180,20 @@ async function pickTrendingTopic(categoryId: string): Promise<{
     };
   }
   
+  console.log(`    ❌ No valid trending topics found`);
   return null;
 }
 
 /**
  * Pick the next topic for room creation based on ratio requirements
- * Strictly alternates between trending and generic to maintain 50:50 ratio
+ * Uses strict alternation between trending and generic (50:50)
  */
 export async function pickBalancedTopic(
   categoryId: string,
   regionTags: string[] = ['National']
 ): Promise<{
   title: string;
+  originalTitle: string; // Always English, for duplicate checking
   description: string;
   sideALabel: string;
   sideBLabel: string;
@@ -234,7 +202,7 @@ export async function pickBalancedTopic(
 } | null> {
   const { preferredTopicType, preferredLanguage } = await getNextTopicRequirements();
   
-  console.log(`  🎯 Picking topic: preferred=${preferredTopicType}, language=${preferredLanguage}`);
+  console.log(`  🎯 Picking topic: type=${preferredTopicType}, lang=${preferredLanguage}`);
   
   let topic: {
     title: string;
@@ -244,60 +212,41 @@ export async function pickBalancedTopic(
   } | null = null;
   let selectedTopicType: TopicType = 'TRENDING';
   
-  // STRICT ALTERNATION: Try preferred type first, then fallback
+  // STRICT: Try preferred type, only fallback if absolutely none available
   if (preferredTopicType === 'local') {
-    // Try trending FIRST when local is preferred
+    // Must try TRENDING first
+    console.log(`  📰 Looking for TRENDING topic...`);
     const trendingResult = await pickTrendingTopic(categoryId);
     if (trendingResult) {
       topic = trendingResult;
       selectedTopicType = 'TRENDING';
-      console.log(`    ✓ Found TRENDING topic`);
     } else {
-      // Fallback to generic only if no trending available
-      console.log(`    ⚠️ No trending topics, falling back to generic`);
+      // Only fallback if no trending at all
+      console.log(`  ⚠️ No trending available, fallback to generic`);
       topic = await pickGenericTopicForRoom(categoryId, preferredLanguage);
       if (topic) {
-        selectedTopicType = 'GENERIC';
-        // Check for duplicates
-        const isInActiveRooms = await isTopicInActiveRooms(topic.title);
-        if (isInActiveRooms) {
-          console.log(`    ⚠️ Generic topic is duplicate, trying another`);
-          topic = null;
-        }
+        const isDupe = await isActiveTopic(topic.title);
+        if (isDupe) topic = null;
+        else selectedTopicType = 'GENERIC';
       }
     }
   } else {
-    // Try generic FIRST when generic is preferred
+    // Must try GENERIC first
+    console.log(`  📚 Looking for GENERIC topic...`);
     topic = await pickGenericTopicForRoom(categoryId, preferredLanguage);
     if (topic) {
-      // Check for duplicates in active rooms
-      const isInActiveRooms = await isTopicInActiveRooms(topic.title);
-      if (isInActiveRooms) {
-        console.log(`    ⚠️ Generic topic is duplicate, trying trending`);
+      const isDupe = await isActiveTopic(topic.title);
+      if (isDupe) {
+        console.log(`  ⚠️ Generic is duplicate, trying another`);
         topic = null;
       } else {
         selectedTopicType = 'GENERIC';
-        console.log(`    ✓ Found GENERIC topic`);
       }
     }
     
+    // Only fallback to trending if no generic
     if (!topic) {
-      // Fallback to international
-      topic = await pickInternationalTopicForRoom(categoryId, preferredLanguage);
-      if (topic) {
-        const isInActiveRooms = await isTopicInActiveRooms(topic.title);
-        if (!isInActiveRooms) {
-          selectedTopicType = 'INTERNATIONAL';
-          console.log(`    ✓ Found INTERNATIONAL topic`);
-        } else {
-          topic = null;
-        }
-      }
-    }
-    
-    if (!topic) {
-      // Fallback to trending
-      console.log(`    ⚠️ No generic/international, falling back to trending`);
+      console.log(`  ⚠️ No generic available, fallback to trending`);
       const trendingResult = await pickTrendingTopic(categoryId);
       if (trendingResult) {
         topic = trendingResult;
@@ -312,19 +261,19 @@ export async function pickBalancedTopic(
   }
   
   // Final duplicate check
-  const finalDuplicateCheck = await isTopicInActiveRooms(topic.title);
-  if (finalDuplicateCheck) {
-    console.log(`  ❌ Topic "${topic.title.substring(0, 30)}..." already in active rooms, skipping`);
+  const finalCheck = await isActiveTopic(topic.title);
+  if (finalCheck) {
+    console.log(`  ❌ Final check failed - duplicate topic`);
     return null;
   }
   
-  // Get final topic content
-  let finalTopic = { ...topic };
-  const finalLanguage = preferredLanguage;
+  // Store original English title for duplicate checking
+  const originalTitle = topic.title;
   
-  // Translate to Hindi if needed
-  if (finalLanguage === 'Hindi' && selectedTopicType !== 'GENERIC') {
-    // Generic topics already have Hindi translations in the JSON
+  // Translate to Hindi if needed (only for non-generic which already has Hindi)
+  let finalTopic = { ...topic };
+  if (preferredLanguage === 'Hindi' && selectedTopicType !== 'GENERIC') {
+    console.log(`  🔄 Translating to Hindi...`);
     const translated = await translateTopicToHindi({
       title: topic.title,
       description: topic.description,
@@ -336,17 +285,18 @@ export async function pickBalancedTopic(
     }
   }
   
-  // Record usage to prevent duplicates
-  await recordTopicUsage(topic.title, categoryId, selectedTopicType, finalLanguage);
+  // Record usage using original English title
+  await recordTopicUsage(originalTitle, categoryId, selectedTopicType, preferredLanguage);
   
-  console.log(`  ✅ Selected: [${selectedTopicType}] ${finalTopic.title.substring(0, 40)}...`);
+  console.log(`  ✅ Final: [${selectedTopicType}/${preferredLanguage}] ${finalTopic.title.substring(0, 40)}...`);
   
   return {
     title: finalTopic.title,
+    originalTitle, // Always English
     description: finalTopic.description,
     sideALabel: finalTopic.sideALabel,
     sideBLabel: finalTopic.sideBLabel,
-    language: finalLanguage,
+    language: preferredLanguage,
     topicType: selectedTopicType,
   };
 }

@@ -948,19 +948,44 @@ Respond in JSON format:
           const originalItem = batch[topic.originalIndex - 1];
           if (!originalItem) continue;
 
-          // Check for duplicate topics
-          const existing = await prisma.topicQueue.findFirst({
+          // Check for duplicate topics by title
+          const existingByTitle = await prisma.topicQueue.findFirst({
             where: { title: topic.title },
           });
+          if (existingByTitle) {
+            console.log(`  ⏭️ Duplicate title: ${topic.title.substring(0, 40)}...`);
+            continue;
+          }
 
-          if (existing) continue;
+          // Check for duplicate by source headline (prevents same news = multiple topics)
+          const existingBySource = await prisma.topicQueue.findFirst({
+            where: { sourceHeadline: originalItem.headline },
+          });
+          if (existingBySource) {
+            console.log(`  ⏭️ Source already used: ${originalItem.headline.substring(0, 40)}...`);
+            continue;
+          }
+
+          // Check if similar topic exists in active rooms
+          const activeRooms = await prisma.room.findMany({
+            where: { status: { in: ['LIVE', 'SCHEDULED'] } },
+            select: { title: true }
+          });
+          const isDuplicateInRooms = activeRooms.some(room => 
+            room.title.toLowerCase().includes(topic.title.toLowerCase().substring(0, 30)) ||
+            topic.title.toLowerCase().includes(room.title.toLowerCase().substring(0, 30))
+          );
+          if (isDuplicateInRooms) {
+            console.log(`  ⏭️ Similar topic in active rooms: ${topic.title.substring(0, 40)}...`);
+            continue;
+          }
 
           // Calculate expiry (24-48 hours based on trending score)
           const baseExpiry = 24 * 60 * 60 * 1000; // 24 hours
           const expiryBonus = originalItem.trendingScore * 12 * 60 * 60 * 1000; // Up to 12 extra hours
           const expiresAt = new Date(Date.now() + baseExpiry + expiryBonus);
 
-          // Store the topic
+          // Store the topic with explicit TRENDING type
           await prisma.topicQueue.create({
             data: {
               regionId: originalItem.regionId || (await getDefaultRegionId()),
@@ -972,12 +997,15 @@ Respond in JSON format:
               sourceHeadline: originalItem.headline,
               sourceUrl: originalItem.sourceUrl,
               trendingScore: originalItem.trendingScore,
+              topicType: 'TRENDING', // Explicitly set as TRENDING
+              language: 'English', // Source topics are always English
+              regionTags: ['National'], // Default tag
               expiresAt,
             },
           });
 
           converted++;
-          console.log(`  ✓ Created topic: ${topic.title}`);
+          console.log(`  ✓ Created TRENDING topic: ${topic.title}`);
         }
       }
 

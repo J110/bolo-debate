@@ -109,11 +109,13 @@ enum ParticipantRole {
 model Room {
   id              String     @id @default(uuid()) @db.Uuid
   title           String
+  originalTitle   String?    // Original English title (before translation) for duplicate checking
   description     String?
   hostId          String?    @db.Uuid
   regionId        String     @db.Uuid
   categoryId      String     @db.Uuid
   type            RoomType   @default(DEBATE)
+  topicType       TopicType? // TRENDING, GENERIC, or INTERNATIONAL for ratio tracking
   sideALabel      String?
   sideBLabel      String?
   language        String     @default("English")  // Discussion language (English, Hindi, Tamil, etc.)
@@ -140,6 +142,7 @@ model Room {
   @@index([regionId])
   @@index([categoryId])
   @@index([scheduledAt])
+  @@index([topicType])
 }
 
 model RoomParticipant {

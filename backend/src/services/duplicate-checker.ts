@@ -15,35 +15,124 @@ const STOP_WORDS = new Set([
   'same', 'so', 'can', 'will', 'just', 'should', 'now', 'क्या', 'है',
   'या', 'और', 'में', 'के', 'की', 'को', 'से', 'पर', 'ने', 'यह', 'वह',
   'कौन', 'बेहतर', 'better', 'best', 'worse', 'worst', 'who', 'which',
-  'what', 'debate', 'discussion', 'topic'
+  'what', 'debate', 'discussion', 'topic', 'चाहिए', 'होना', 'करना',
+  'करें', 'करे', 'होनी', 'होने', 'जाना', 'जाए', 'जाएं', 'रहा', 'रही',
+  'कर', 'हो', 'था', 'थी', 'थे', 'हैं', 'हुआ', 'हुई', 'हुए', 'गया', 'गई'
 ]);
+
+// Hindi-English equivalents for semantic matching
+const WORD_EQUIVALENTS: Record<string, string> = {
+  // Public/सार्वजनिक/पब्लिक
+  'सार्वजनिक': 'public',
+  'पब्लिक': 'public',
+  'public': 'public',
+  // Criticism/आलोचना/क्रिटिसिज़्म
+  'आलोचना': 'criticism',
+  'क्रिटिसिज़्म': 'criticism',
+  'criticism': 'criticism',
+  // Budget/बजट
+  'बजट': 'budget',
+  'budget': 'budget',
+  // Allocation/आवंटन
+  'आवंटन': 'allocation',
+  'allocation': 'allocation',
+  // Change/बदलना/बदला/बदलाव
+  'बदलना': 'change',
+  'बदला': 'change',
+  'बदलाव': 'change',
+  'change': 'change',
+  // Response/जवाब
+  'जवाब': 'response',
+  'response': 'response',
+  // Hero/हीरो/नायक
+  'हीरो': 'hero',
+  'hero': 'hero',
+  'नायक': 'hero',
+  // Celebrity/सेलिब्रिटी/सेलिब्रिटीज़
+  'सेलिब्रिटी': 'celebrity',
+  'सेलिब्रिटीज़': 'celebrity',
+  'celebrity': 'celebrity',
+  'celebrities': 'celebrity',
+  // Social/सामाजिक
+  'सामाजिक': 'social',
+  'social': 'social',
+  // Cause/कारण
+  'कारण': 'cause',
+  'कारणों': 'cause',
+  'cause': 'cause',
+  // Influence/प्रभाव
+  'प्रभाव': 'influence',
+  'influence': 'influence',
+  // India/भारत
+  'भारत': 'india',
+  'india': 'india',
+  'indian': 'india',
+  // Short/छोटा/शॉर्ट
+  'छोटा': 'short',
+  'short': 'short',
+  'शॉर्ट': 'short',
+  // Video/वीडियो
+  'वीडियो': 'video',
+  'video': 'video',
+  'videos': 'video',
+  // Attention/ध्यान
+  'ध्यान': 'attention',
+  'attention': 'attention',
+};
+
+/**
+ * Normalizes a word using equivalents map
+ */
+function normalizeWord(word: string): string {
+  const lower = word.toLowerCase();
+  return WORD_EQUIVALENTS[lower] || lower;
+}
+
+/**
+ * Extracts key content words from title (removes stop words, normalizes equivalents)
+ */
+export function extractKeyWords(title: string): string[] {
+  // Remove punctuation and special characters
+  let cleaned = title.toLowerCase().replace(/[^\w\s\u0900-\u097F]/g, ' ');
+  
+  // Split into words
+  const words = cleaned.split(/\s+/).filter(word => word.length > 1);
+  
+  // Remove stop words and normalize
+  const keyWords = words
+    .filter(word => !STOP_WORDS.has(word))
+    .map(word => normalizeWord(word));
+  
+  return [...new Set(keyWords)]; // Remove duplicates
+}
 
 /**
  * Normalizes a topic title for duplicate detection
- * 1. Lowercase
- * 2. Remove punctuation
- * 3. Remove stop words
- * 4. Sort words alphabetically
- * 5. Join with single space
+ * 1. Extract key words
+ * 2. Normalize equivalents (Hindi/English)
+ * 3. Sort alphabetically
+ * 4. Join with single space
  */
 export function normalizeTitle(title: string): string {
-  // Lowercase
-  let normalized = title.toLowerCase();
+  const keyWords = extractKeyWords(title);
+  keyWords.sort();
+  return keyWords.join(' ');
+}
+
+/**
+ * Calculate similarity between two titles (0-1)
+ * Uses Jaccard similarity on key words
+ */
+export function calculateSimilarity(title1: string, title2: string): number {
+  const words1 = new Set(extractKeyWords(title1));
+  const words2 = new Set(extractKeyWords(title2));
   
-  // Remove punctuation and special characters
-  normalized = normalized.replace(/[^\w\s\u0900-\u097F]/g, ' ');
+  if (words1.size === 0 || words2.size === 0) return 0;
   
-  // Split into words
-  const words = normalized.split(/\s+/).filter(word => word.length > 0);
+  const intersection = new Set([...words1].filter(x => words2.has(x)));
+  const union = new Set([...words1, ...words2]);
   
-  // Remove stop words
-  const filteredWords = words.filter(word => !STOP_WORDS.has(word));
-  
-  // Sort alphabetically
-  filteredWords.sort();
-  
-  // Join with single space
-  return filteredWords.join(' ');
+  return intersection.size / union.size;
 }
 
 /**
@@ -71,25 +160,42 @@ export async function isDuplicateTopic(title: string): Promise<boolean> {
 
 /**
  * Checks if a topic is currently active (LIVE or SCHEDULED)
+ * Uses fuzzy matching to catch semantic duplicates
+ * Also checks originalTitle field for translated rooms
  * @param title The topic title to check
- * @returns true if active, false if not
+ * @returns true if active (or similar topic is active), false if not
  */
 export async function isActiveTopic(title: string): Promise<boolean> {
-  const normalizedTitle = normalizeTitle(title);
+  const SIMILARITY_THRESHOLD = 0.5; // 50% word overlap = duplicate
   
-  // Get all active rooms
+  // Get all active rooms with both title and originalTitle
   const activeRooms = await prisma.room.findMany({
     where: {
       status: { in: ['LIVE', 'SCHEDULED'] }
     },
-    select: { title: true }
+    select: { title: true, originalTitle: true }
   });
   
-  // Check if any active room has similar title
+  // Check if any active room has similar title (against both title and originalTitle)
   for (const room of activeRooms) {
-    const roomNormalized = normalizeTitle(room.title);
-    if (roomNormalized === normalizedTitle) {
+    // Check against display title
+    const titleSimilarity = calculateSimilarity(title, room.title);
+    if (titleSimilarity >= SIMILARITY_THRESHOLD) {
+      console.log(`    ⚠️ Similar topic found (${(titleSimilarity * 100).toFixed(0)}% match):`);
+      console.log(`       New: "${title.substring(0, 50)}..."`);
+      console.log(`       Existing: "${room.title.substring(0, 50)}..."`);
       return true;
+    }
+    
+    // Check against original title (for translated rooms)
+    if (room.originalTitle && room.originalTitle !== room.title) {
+      const originalSimilarity = calculateSimilarity(title, room.originalTitle);
+      if (originalSimilarity >= SIMILARITY_THRESHOLD) {
+        console.log(`    ⚠️ Similar to original (${(originalSimilarity * 100).toFixed(0)}% match):`);
+        console.log(`       New: "${title.substring(0, 50)}..."`);
+        console.log(`       Original: "${room.originalTitle.substring(0, 50)}..."`);
+        return true;
+      }
     }
   }
   
