@@ -453,13 +453,13 @@ $shareUrl''';
                       ),
                     ),
                   ),
-                  // Grayscale image with color blend for duotone effect
+                  // Apply high contrast grayscale + posterize effect for illustration look
                   ColorFiltered(
                     colorFilter: const ColorFilter.matrix(<double>[
-                      0.33, 0.33, 0.33, 0, 0,
-                      0.33, 0.33, 0.33, 0, 0,
-                      0.33, 0.33, 0.33, 0, 0,
-                      0,    0,    0,    1, 0,
+                      0.4, 0.4, 0.4, 0, -30,  // Higher contrast, darker shadows
+                      0.4, 0.4, 0.4, 0, -30,
+                      0.4, 0.4, 0.4, 0, -30,
+                      0,   0,   0,   1,   0,
                     ]),
                     child: CachedNetworkImage(
                       imageUrl: _getImageUrl(room),
@@ -468,33 +468,48 @@ $shareUrl''';
                       errorWidget: (context, url, error) => const SizedBox.shrink(),
                     ),
                   ),
-                  // Strong color overlay with multiply blend for duotone art effect
+                  // Strong color tint layer - creates bold duotone art effect
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          overlayTheme.primary.withOpacity(0.75),
-                          overlayTheme.secondary.withOpacity(0.65),
+                          overlayTheme.primary.withOpacity(0.85),
+                          overlayTheme.secondary.withOpacity(0.80),
                         ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      backgroundBlendMode: BlendMode.multiply,
+                      backgroundBlendMode: BlendMode.color,
                     ),
                   ),
-                  // Lighter highlight overlay for artistic depth
+                  // Multiply layer for deeper shadows
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          Colors.white.withOpacity(0.1),
-                          Colors.transparent,
-                          overlayTheme.primary.withOpacity(0.3),
+                          overlayTheme.primary.withOpacity(0.4),
+                          overlayTheme.secondary.withOpacity(0.5),
                         ],
-                        stops: const [0.0, 0.5, 1.0],
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                       ),
+                      backgroundBlendMode: BlendMode.multiply,
+                    ),
+                  ),
+                  // Soft light highlight for artistic glow
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.white.withOpacity(0.15),
+                          Colors.transparent,
+                          overlayTheme.primary.withOpacity(0.2),
+                        ],
+                        stops: const [0.0, 0.4, 1.0],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      backgroundBlendMode: BlendMode.softLight,
                     ),
                   ),
                   // Status badge (top right)

@@ -201,14 +201,14 @@ class _BannerCardState extends State<_BannerCard> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Background image with grayscale filter
+          // Background abstract image - enhanced for artistic look
           if (_selectedImageUrl != null)
             ColorFiltered(
               colorFilter: const ColorFilter.matrix(<double>[
-                0.33, 0.33, 0.33, 0, 0,
-                0.33, 0.33, 0.33, 0, 0,
-                0.33, 0.33, 0.33, 0, 0,
-                0,    0,    0,    1, 0,
+                0.35, 0.35, 0.35, 0, -20,  // High contrast grayscale
+                0.35, 0.35, 0.35, 0, -20,
+                0.35, 0.35, 0.35, 0, -20,
+                0,    0,    0,    1,   0,
               ]),
               child: CachedNetworkImage(
                 imageUrl: _selectedImageUrl!,
@@ -221,32 +221,48 @@ class _BannerCardState extends State<_BannerCard> {
                 ),
               ),
             ),
-          // Gradient overlay for theme color
+          // Primary color overlay with color blend mode
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  widget.item.gradientColors.first.withOpacity(0.85),
-                  widget.item.gradientColors.last.withOpacity(0.75),
+                  widget.item.gradientColors.first.withOpacity(0.90),
+                  widget.item.gradientColors.last.withOpacity(0.85),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              backgroundBlendMode: BlendMode.color,
+            ),
+          ),
+          // Multiply layer for depth
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  widget.item.gradientColors.first.withOpacity(0.45),
+                  widget.item.gradientColors.last.withOpacity(0.55),
                 ],
                 begin: Alignment.centerLeft,
                 end: Alignment.centerRight,
               ),
+              backgroundBlendMode: BlendMode.multiply,
             ),
           ),
-          // Subtle highlight gradient
+          // Soft light highlight for artistic glow
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  Colors.white.withOpacity(0.1),
+                  Colors.white.withOpacity(0.12),
                   Colors.transparent,
-                  Colors.black.withOpacity(0.1),
+                  widget.item.gradientColors.first.withOpacity(0.15),
                 ],
-                stops: const [0.0, 0.5, 1.0],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
+                stops: const [0.0, 0.4, 1.0],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
+              backgroundBlendMode: BlendMode.softLight,
             ),
           ),
           // Decorative elements
@@ -421,37 +437,37 @@ class _PageIndicator extends StatelessWidget {
 class BoloBanners {
   BoloBanners._();
 
-  // Verified working Pixabay image URLs
+  // Abstract/geometric illustration style images
   static const _voiceImages = [
-    'https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=640',
-    'https://images.unsplash.com/photo-1589903308904-1010c2294adc?w=640',
-    'https://images.unsplash.com/photo-1516321497487-e288fb19713f?w=640',
-    'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?w=640',
-    'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=640',
+    'https://images.unsplash.com/photo-1557672172-298e090bd0f1?w=640', // Abstract colorful
+    'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=640', // Geometric shapes
+    'https://images.unsplash.com/photo-1558591710-4b4a1ae0f04d?w=640', // Abstract art
+    'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=640', // Color waves
+    'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=640', // Abstract gradient
   ];
 
   static const _debateImages = [
-    'https://images.unsplash.com/photo-1552664730-d307ca884978?w=640',
-    'https://images.unsplash.com/photo-1531482615713-2afd69097998?w=640',
-    'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=640',
-    'https://images.unsplash.com/photo-1528901166007-3784c7dd3653?w=640',
-    'https://images.unsplash.com/photo-1515187029135-18ee286d815b?w=640',
+    'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=640', // Gradient mesh
+    'https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=640', // Purple gradient
+    'https://images.unsplash.com/photo-1557682224-5b8590cd9ec5?w=640', // Blue gradient
+    'https://images.unsplash.com/photo-1557682260-96773eb01377?w=640', // Colorful gradient
+    'https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?w=640', // Abstract shapes
   ];
 
   static const _trendingImages = [
-    'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=640',
-    'https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=640',
-    'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=640',
-    'https://images.unsplash.com/photo-1526628953301-3e589a6a8b74?w=640',
-    'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=640',
+    'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=640', // Neon gradient
+    'https://images.unsplash.com/photo-1614851099175-e5b30eb6f696?w=640', // Abstract lines
+    'https://images.unsplash.com/photo-1633177317976-3f9bc45e1d1d?w=640', // Geometric art
+    'https://images.unsplash.com/photo-1618172193763-c511deb635ca?w=640', // Abstract wave
+    'https://images.unsplash.com/photo-1557683316-973673baf926?w=640', // Gradient abstract
   ];
 
   static const _communityImages = [
-    'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=640',
-    'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=640',
-    'https://images.unsplash.com/photo-1517048676732-d65bc937f952?w=640',
-    'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?w=640',
-    'https://images.unsplash.com/photo-1543269865-cbf427effbad?w=640',
+    'https://images.unsplash.com/photo-1604076913837-52ab5629fba9?w=640', // Abstract network
+    'https://images.unsplash.com/photo-1558470598-a5dda9640f68?w=640', // Colorful abstract
+    'https://images.unsplash.com/photo-1614854262318-831574f15f1f?w=640', // Geometric pattern
+    'https://images.unsplash.com/photo-1563089145-599997674d42?w=640', // Abstract colorful
+    'https://images.unsplash.com/photo-1550859492-d5da9d8e45f3?w=640', // Purple abstract
   ];
 
   static BannerItem joinDebate({VoidCallback? onAction}) => BannerItem(

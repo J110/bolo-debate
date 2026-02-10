@@ -131,10 +131,18 @@ async function start() {
     
     // Register plugins INSIDE the async function
     await app.register(cors, {
-      origin: true,
+      origin: [
+        'https://bolo-debate.vercel.app',
+        'https://bolo-debate-git-main-anmols-projects-eebd9624.vercel.app',
+        /\.vercel\.app$/,
+        'http://localhost:3000',
+        'http://localhost:8080',
+      ],
       credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
     });
-    console.log('  ✓ CORS enabled');
+    console.log('  ✓ CORS enabled for Vercel and localhost');
 
     await app.register(jwt, {
       secret: config.jwt.secret,
