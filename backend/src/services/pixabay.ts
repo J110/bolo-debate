@@ -1,6 +1,57 @@
 import { config } from '../config/index.js';
+import OpenAI from 'openai';
 
 const PIXABAY_API_URL = 'https://pixabay.com/api/';
+
+// Initialize Groq client (uses OpenAI-compatible API)
+const hasGroq = config.groq?.apiKey && config.groq.apiKey.length > 10;
+const groq = hasGroq ? new OpenAI({
+  apiKey: config.groq.apiKey,
+  baseURL: 'https://api.groq.com/openai/v1',
+}) : null;
+
+/**
+ * Detect if text contains Hindi (Devanagari script)
+ */
+export function isHindiText(text: string): boolean {
+  // Devanagari Unicode range: \u0900-\u097F
+  const devanagariPattern = /[\u0900-\u097F]/;
+  return devanagariPattern.test(text);
+}
+
+/**
+ * Translate Hindi text to English using Groq
+ */
+export async function translateHindiToEnglish(hindiText: string): Promise<string> {
+  if (!groq) {
+    console.warn('Groq not configured, returning original text');
+    return hindiText;
+  }
+  
+  try {
+    const response = await groq.chat.completions.create({
+      model: 'llama-3.1-8b-instant',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a translator. Translate the given Hindi text to English. Return ONLY the English translation, nothing else.',
+        },
+        {
+          role: 'user',
+          content: hindiText,
+        },
+      ],
+      temperature: 0.1,
+      max_tokens: 200,
+    });
+    
+    const translation = response.choices[0]?.message?.content?.trim();
+    return translation || hindiText;
+  } catch (error) {
+    console.error('Error translating Hindi to English:', error);
+    return hindiText;
+  }
+}
 
 // Keywords to ignore when extracting topic keywords
 const STOP_WORDS = new Set([
@@ -180,9 +231,21 @@ export async function searchIllustrations(
 
 /**
  * Get a single illustration URL for a room title
+ * Handles both English and Hindi titles (translates Hindi first)
  */
 export async function getIllustrationForTitle(title: string): Promise<string | null> {
-  const keyword = extractKeyword(title);
+  let textForKeyword = title;
+  
+  // If title is in Hindi, translate to English first
+  if (isHindiText(title)) {
+    console.log(`Detected Hindi title, translating: ${title.substring(0, 50)}...`);
+    textForKeyword = await translateHindiToEnglish(title);
+    console.log(`Translated to: ${textForKeyword.substring(0, 50)}...`);
+  }
+  
+  const keyword = extractKeyword(textForKeyword);
+  console.log(`Searching Pixabay for keyword: ${keyword}`);
+  
   const images = await searchIllustrations(keyword, 3);
   
   if (images.length === 0) {

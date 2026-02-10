@@ -5,6 +5,7 @@ import { ParticipantRole } from '@prisma/client';
 import { authenticate, optionalAuth, getUser } from '../middleware/auth.js';
 import { getLiveKitToken } from '../services/livekit.js';
 import { broadcastToRoom } from '../websocket/index.js';
+import { getIllustrationForTitle } from '../services/pixabay.js';
 
 // Supported languages for room discussions
 const SUPPORTED_LANGUAGES = [
@@ -242,11 +243,15 @@ export async function roomRoutes(app: FastifyInstance) {
         });
       }
 
+      // Fetch illustration from title (handles both English and Hindi)
+      const illustrationUrl = await getIllustrationForTitle(body.title);
+
       const room = await prisma.room.create({
         data: {
           ...body,
           hostId: userId,
           scheduledAt,
+          illustrationUrl,
           isAiHosted: false,
         },
         include: {
