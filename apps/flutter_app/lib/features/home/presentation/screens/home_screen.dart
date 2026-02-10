@@ -24,61 +24,8 @@ class HomeScreen extends ConsumerWidget {
     
     final liveRoomsAsync = ref.watch(liveRoomsProvider(filterParams));
     final scheduledRoomsAsync = ref.watch(scheduledRoomsProvider(filterParams));
-    final regionsAsync = ref.watch(regionsProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Bolo Debate',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-            ),
-            regionsAsync.when(
-              data: (regions) {
-                final region = selectedRegion != null
-                    ? regions.where((r) => r.id == selectedRegion).firstOrNull
-                    : null;
-                return GestureDetector(
-                  onTap: () => _showRegionPicker(context, ref, regions),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.location_on, size: 14, color: AppColors.primary),
-                      const SizedBox(width: 4),
-                      Text(
-                        region?.name ?? 'All Regions',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                      Icon(Icons.arrow_drop_down, size: 16, color: AppColors.primary),
-                    ],
-                  ),
-                );
-              },
-              loading: () => const SizedBox(height: 14),
-              error: (_, __) => const SizedBox(height: 14),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () {
-              // TODO: Implement search
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {
-              // TODO: Implement notifications
-            },
-          ),
-        ],
-      ),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(liveRoomsProvider(filterParams));
@@ -140,7 +87,7 @@ class HomeScreen extends ConsumerWidget {
               },
             ),
             
-            // Hero Banner Carousel
+            // Hero Banner with integrated header
             SliverToBoxAdapter(
               child: HeroBanner(
                 items: [
@@ -158,13 +105,27 @@ class HomeScreen extends ConsumerWidget {
                     },
                   ),
                 ],
+                onNotificationTap: () {
+                  // TODO: Implement notifications
+                },
               ),
             ),
             
-            // Categories
+            // Categories section with header
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                child: Text(
+                  'Categories',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8, bottom: 8),
                 child: CategoryChips(),
               ),
             ),
@@ -321,91 +282,6 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  void _showRegionPicker(BuildContext context, WidgetRef ref, List regions) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (modalContext) {
-        return Consumer(
-          builder: (context, ref, child) {
-            final selectedRegion = ref.watch(selectedRegionProvider);
-            
-            return Container(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.6,
-              ),
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Select Region',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 16),
-                  // "All Regions" option
-                  ListTile(
-                    leading: Icon(
-                      Icons.public,
-                      color: selectedRegion == null ? AppColors.primary : null,
-                    ),
-                    title: Text(
-                      'All Regions',
-                      style: TextStyle(
-                        fontWeight: selectedRegion == null ? FontWeight.bold : FontWeight.normal,
-                        color: selectedRegion == null ? AppColors.primary : null,
-                      ),
-                    ),
-                    subtitle: const Text('Show rooms from all regions'),
-                    trailing: selectedRegion == null 
-                        ? Icon(Icons.check, color: AppColors.primary)
-                        : null,
-                    onTap: () {
-                      ref.read(selectedRegionProvider.notifier).setRegion(null);
-                      Navigator.pop(modalContext);
-                    },
-                  ),
-                  const Divider(),
-                  Flexible(
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: regions.length,
-                      itemBuilder: (context, index) {
-                        final region = regions[index];
-                        final isSelected = selectedRegion == region.id;
-                        return ListTile(
-                          leading: Icon(
-                            Icons.location_on_outlined,
-                            color: isSelected ? AppColors.primary : null,
-                          ),
-                          title: Text(
-                            region.name,
-                            style: TextStyle(
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                              color: isSelected ? AppColors.primary : null,
-                            ),
-                          ),
-                          subtitle: Text(region.state),
-                          trailing: isSelected 
-                              ? Icon(Icons.check, color: AppColors.primary)
-                              : null,
-                          onTap: () {
-                            ref.read(selectedRegionProvider.notifier).setRegion(region.id);
-                            Navigator.pop(modalContext);
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
 }
 
 class _EmptyState extends StatelessWidget {

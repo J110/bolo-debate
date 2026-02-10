@@ -21,15 +21,17 @@ class BannerItem {
 }
 
 /// Hero banner widget that displays promotional content
-/// Can be extended to a carousel in the future
+/// Includes integrated header with app name and notification icon
 class HeroBanner extends StatefulWidget {
   final List<BannerItem> items;
   final Duration autoPlayDuration;
+  final VoidCallback? onNotificationTap;
 
   const HeroBanner({
     super.key,
     required this.items,
     this.autoPlayDuration = const Duration(seconds: 5),
+    this.onNotificationTap,
   });
 
   @override
@@ -71,28 +73,81 @@ class _HeroBannerState extends State<HeroBanner> {
 
   @override
   Widget build(BuildContext context) {
+    final topPadding = MediaQuery.of(context).padding.top;
+    
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      height: 180,
+      padding: EdgeInsets.only(top: topPadding),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            widget.items.isNotEmpty 
+                ? widget.items[_currentPage].gradientColors.first
+                : AppColors.primary,
+            widget.items.isNotEmpty 
+                ? widget.items[_currentPage].gradientColors.last
+                : AppColors.primaryDark,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
+          // Header row with app name and notification
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Bolo',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.notifications_outlined),
+                    color: Colors.white,
+                    onPressed: widget.onNotificationTap,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Banner carousel
+          SizedBox(
+            height: 180,
             child: PageView.builder(
               controller: _pageController,
               onPageChanged: (page) => setState(() => _currentPage = page),
               itemCount: widget.items.length,
               itemBuilder: (context, index) {
-                return _BannerCard(item: widget.items[index]);
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                  child: _BannerCard(item: widget.items[index]),
+                );
               },
             ),
           ),
           if (widget.items.length > 1) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             _PageIndicator(
               count: widget.items.length,
               currentIndex: _currentPage,
+              activeColor: Colors.white,
+              inactiveColor: Colors.white.withOpacity(0.4),
             ),
           ],
+          const SizedBox(height: 16),
         ],
       ),
     );
@@ -109,19 +164,13 @@ class _BannerCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        gradient: LinearGradient(
-          colors: item.gradientColors,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+        color: Colors.white.withOpacity(0.15),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.2),
+          width: 1,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: item.gradientColors.first.withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
       ),
+      clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
           // Decorative elements
@@ -129,8 +178,8 @@ class _BannerCard extends StatelessWidget {
             right: -20,
             top: -20,
             child: Container(
-              width: 120,
-              height: 120,
+              width: 100,
+              height: 100,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: Colors.white.withOpacity(0.1),
@@ -138,11 +187,11 @@ class _BannerCard extends StatelessWidget {
             ),
           ),
           Positioned(
-            right: 40,
-            bottom: -30,
+            right: 30,
+            bottom: -20,
             child: Container(
-              width: 80,
-              height: 80,
+              width: 60,
+              height: 60,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: Colors.white.withOpacity(0.08),
@@ -152,12 +201,12 @@ class _BannerCard extends StatelessWidget {
           // Decorative mic/speech icons
           if (item.icon != null)
             Positioned(
-              right: 20,
-              top: 20,
+              right: 16,
+              top: 16,
               child: Icon(
                 item.icon,
-                size: 80,
-                color: Colors.white.withOpacity(0.15),
+                size: 70,
+                color: Colors.white.withOpacity(0.2),
               ),
             ),
           // Content
@@ -171,25 +220,28 @@ class _BannerCard extends StatelessWidget {
                   item.title,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 22,
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
                     height: 1.2,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  item.subtitle,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
-                    fontSize: 14,
-                    height: 1.3,
+                const SizedBox(height: 6),
+                SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.55,
+                  child: Text(
+                    item.subtitle,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.85),
+                      fontSize: 13,
+                      height: 1.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 16),
+                const Spacer(),
                 _ActionButton(
                   text: item.actionText,
                   onPressed: item.onAction,
@@ -253,10 +305,14 @@ class _ActionButton extends StatelessWidget {
 class _PageIndicator extends StatelessWidget {
   final int count;
   final int currentIndex;
+  final Color? activeColor;
+  final Color? inactiveColor;
 
   const _PageIndicator({
     required this.count,
     required this.currentIndex,
+    this.activeColor,
+    this.inactiveColor,
   });
 
   @override
@@ -272,7 +328,9 @@ class _PageIndicator extends StatelessWidget {
           height: 6,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(3),
-            color: isActive ? AppColors.primary : Colors.grey[300],
+            color: isActive 
+                ? (activeColor ?? AppColors.primary) 
+                : (inactiveColor ?? Colors.grey[300]),
           ),
         );
       }),
