@@ -130,41 +130,11 @@ async function start() {
     console.log('🔧 Initializing server...');
     
     // Register plugins INSIDE the async function
-    // Use origin function for more reliable CORS handling
     await app.register(cors, {
-      origin: (origin, callback) => {
-        // Allow requests with no origin (mobile apps, curl, etc.)
-        if (!origin) {
-          callback(null, true);
-          return;
-        }
-        
-        // Allow all vercel.app domains
-        if (origin.endsWith('.vercel.app')) {
-          callback(null, true);
-          return;
-        }
-        
-        // Allow localhost for development
-        if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-          callback(null, true);
-          return;
-        }
-        
-        // Allow specific production domain
-        if (origin === 'https://bolo-debate.vercel.app') {
-          callback(null, true);
-          return;
-        }
-        
-        // Reject unknown origins
-        callback(new Error('Not allowed by CORS'), false);
-      },
+      origin: true, // Allow all origins
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'],
       allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
-      exposedHeaders: ['Content-Range', 'X-Content-Range'],
-      maxAge: 86400, // Cache preflight for 24 hours
     });
     console.log('  ✓ CORS enabled');
 
