@@ -131,12 +131,48 @@ async function start() {
     
     // Register plugins INSIDE the async function
     await app.register(cors, {
-      origin: true, // Allow all origins for now
+      origin: [
+        'https://bolo-debate.vercel.app',
+        'https://bolo-debate-pweq2pyyr-anmols-projects-eebd9624.vercel.app',
+        /\.vercel\.app$/,
+        'http://localhost:3000',
+        'http://localhost:8080',
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:8080',
+      ],
       credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'],
       allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
+      exposedHeaders: ['Content-Range', 'X-Content-Range'],
+      maxAge: 86400, // Cache preflight for 24 hours
+      preflight: true,
+      strictPreflight: false,
     });
     console.log('  ✓ CORS enabled');
+
+    // Explicit OPTIONS handler for all routes (backup for CORS preflight)
+    app.options('*', async (request, reply) => {
+      reply
+        .header('Access-Control-Allow-Origin', request.headers.origin || '*')
+        .header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD')
+        .header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, Origin, X-Requested-With')
+        .header('Access-Control-Allow-Credentials', 'true')
+        .header('Access-Control-Max-Age', '86400')
+        .status(204)
+        .send();
+    });
+    console.log('  ✓ OPTIONS preflight handler registered');
+
+    // Add CORS headers to all responses as fallback
+    app.addHook('onSend', async (request, reply, payload) => {
+      const origin = request.headers.origin;
+      if (origin) {
+        reply.header('Access-Control-Allow-Origin', origin);
+        reply.header('Access-Control-Allow-Credentials', 'true');
+      }
+      return payload;
+    });
+    console.log('  ✓ CORS response hook registered');
 
     await app.register(jwt, {
       secret: config.jwt.secret,
