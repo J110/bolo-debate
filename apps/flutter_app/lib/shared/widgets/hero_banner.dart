@@ -437,37 +437,38 @@ class _PageIndicator extends StatelessWidget {
 class BoloBanners {
   BoloBanners._();
 
-  // Abstract/geometric illustration style images
+  // Use Lorem Picsum for reliable image loading (no hotlink restrictions)
+  // These provide abstract/artistic images with seed for consistency
   static const _voiceImages = [
-    'https://images.unsplash.com/photo-1557672172-298e090bd0f1?w=640', // Abstract colorful
-    'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=640', // Geometric shapes
-    'https://images.unsplash.com/photo-1558591710-4b4a1ae0f04d?w=640', // Abstract art
-    'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=640', // Color waves
-    'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=640', // Abstract gradient
+    'https://picsum.photos/seed/voice1/640/400',
+    'https://picsum.photos/seed/voice2/640/400',
+    'https://picsum.photos/seed/voice3/640/400',
+    'https://picsum.photos/seed/voice4/640/400',
+    'https://picsum.photos/seed/voice5/640/400',
   ];
 
   static const _debateImages = [
-    'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=640', // Gradient mesh
-    'https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=640', // Purple gradient
-    'https://images.unsplash.com/photo-1557682224-5b8590cd9ec5?w=640', // Blue gradient
-    'https://images.unsplash.com/photo-1557682260-96773eb01377?w=640', // Colorful gradient
-    'https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?w=640', // Abstract shapes
+    'https://picsum.photos/seed/debate1/640/400',
+    'https://picsum.photos/seed/debate2/640/400',
+    'https://picsum.photos/seed/debate3/640/400',
+    'https://picsum.photos/seed/debate4/640/400',
+    'https://picsum.photos/seed/debate5/640/400',
   ];
 
   static const _trendingImages = [
-    'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=640', // Neon gradient
-    'https://images.unsplash.com/photo-1614851099175-e5b30eb6f696?w=640', // Abstract lines
-    'https://images.unsplash.com/photo-1633177317976-3f9bc45e1d1d?w=640', // Geometric art
-    'https://images.unsplash.com/photo-1618172193763-c511deb635ca?w=640', // Abstract wave
-    'https://images.unsplash.com/photo-1557683316-973673baf926?w=640', // Gradient abstract
+    'https://picsum.photos/seed/trend1/640/400',
+    'https://picsum.photos/seed/trend2/640/400',
+    'https://picsum.photos/seed/trend3/640/400',
+    'https://picsum.photos/seed/trend4/640/400',
+    'https://picsum.photos/seed/trend5/640/400',
   ];
 
   static const _communityImages = [
-    'https://images.unsplash.com/photo-1604076913837-52ab5629fba9?w=640', // Abstract network
-    'https://images.unsplash.com/photo-1558470598-a5dda9640f68?w=640', // Colorful abstract
-    'https://images.unsplash.com/photo-1614854262318-831574f15f1f?w=640', // Geometric pattern
-    'https://images.unsplash.com/photo-1563089145-599997674d42?w=640', // Abstract colorful
-    'https://images.unsplash.com/photo-1550859492-d5da9d8e45f3?w=640', // Purple abstract
+    'https://picsum.photos/seed/community1/640/400',
+    'https://picsum.photos/seed/community2/640/400',
+    'https://picsum.photos/seed/community3/640/400',
+    'https://picsum.photos/seed/community4/640/400',
+    'https://picsum.photos/seed/community5/640/400',
   ];
 
   static BannerItem joinDebate({VoidCallback? onAction}) => BannerItem(

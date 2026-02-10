@@ -78,22 +78,39 @@ const STOP_WORDS = new Set([
 // High-value keywords mapped to diverse search terms
 // Each keyword has multiple search variations for diversity
 const PRIORITY_KEYWORDS: Record<string, string[]> = {
-  // Sports - diverse terms
-  'cricket': ['cricket bat ball', 'cricket stadium', 'cricket player'],
-  'ipl': ['cricket trophy', 'cricket match', 'sports stadium'],
-  'football': ['football soccer ball', 'soccer player', 'football stadium'],
-  'soccer': ['soccer ball goal', 'soccer match', 'football player'],
-  'basketball': ['basketball hoop', 'basketball player', 'basketball court'],
-  'hockey': ['hockey stick puck', 'ice hockey', 'field hockey'],
-  'tennis': ['tennis racket ball', 'tennis court', 'tennis player'],
-  'olympics': ['olympics medal', 'olympic rings', 'sports champion'],
-  'athlete': ['athlete running', 'sports fitness', 'marathon runner'],
-  'sports': ['sports equipment', 'athletics', 'fitness exercise'],
-  'injury': ['medical bandage', 'hospital care', 'health treatment'],
-  'coach': ['sports coach', 'training mentor', 'team coach'],
-  'commentator': ['sports commentary', 'microphone broadcast', 'sports announcer'],
-  'retire': ['retirement celebration', 'career achievement', 'sports legend'],
-  'player': ['sports player', 'athlete competition', 'team sports'],
+  // Sports - diverse terms (IMPORTANT: cricket must match before other terms)
+  'cricket': ['cricket bat ball illustration', 'cricket stadium drawing', 'cricket player vector'],
+  'क्रिकेट': ['cricket bat ball illustration', 'cricket stadium drawing', 'cricket player vector'],
+  'ipl': ['cricket trophy illustration', 'cricket match drawing', 'sports stadium vector'],
+  'football': ['american football illustration', 'football player drawing', 'football field vector'],
+  'soccer': ['soccer ball illustration', 'soccer player drawing', 'football goal vector'],
+  'basketball': ['basketball hoop illustration', 'basketball player drawing', 'basketball court vector'],
+  'hockey': ['hockey stick illustration', 'ice hockey drawing', 'field hockey vector'],
+  'tennis': ['tennis racket illustration', 'tennis court drawing', 'tennis player vector'],
+  'badminton': ['badminton shuttle illustration', 'badminton racket drawing', 'badminton player vector'],
+  'olympics': ['olympics medal illustration', 'olympic rings drawing', 'sports champion vector'],
+  'athlete': ['athlete running illustration', 'sports fitness drawing', 'marathon runner vector'],
+  'sports': ['sports equipment illustration', 'athletics drawing', 'fitness exercise vector'],
+  'match': ['sports match illustration', 'competition game drawing', 'tournament vector'],
+  'injury': ['medical bandage illustration', 'hospital care drawing', 'health treatment vector'],
+  'coach': ['sports coach illustration', 'training mentor drawing', 'team coach vector'],
+  'commentator': ['sports commentary illustration', 'microphone broadcast drawing', 'announcer vector'],
+  'retire': ['retirement illustration', 'career achievement drawing', 'celebration vector'],
+  'player': ['sports player illustration', 'athlete competition drawing', 'team sports vector'],
+  
+  // Transport - NEW
+  'rail': ['train railway illustration', 'railroad station drawing', 'railway tracks vector'],
+  'railway': ['train railway illustration', 'railway station drawing', 'train tracks vector'],
+  'train': ['train locomotive illustration', 'railway station drawing', 'railroad vector'],
+  'travel': ['travel journey illustration', 'tourism adventure drawing', 'vacation trip vector'],
+  'traveler': ['traveler tourist illustration', 'journey adventure drawing', 'travel vacation vector'],
+  'travelers': ['travelers tourist illustration', 'journey adventure drawing', 'travel vacation vector'],
+  'pass': ['travel pass illustration', 'ticket card drawing', 'journey pass vector'],
+  'airport': ['airport plane illustration', 'airplane terminal drawing', 'aviation vector'],
+  'flight': ['airplane flight illustration', 'plane flying drawing', 'aviation vector'],
+  'car': ['car vehicle illustration', 'automobile driving drawing', 'car vector'],
+  'bus': ['bus transport illustration', 'bus station drawing', 'public transport vector'],
+  'metro': ['metro subway illustration', 'underground train drawing', 'metro station vector'],
   
   // Municipal & Public Services
   'waste': ['garbage truck', 'recycling waste', 'waste management'],
@@ -284,6 +301,7 @@ function hashString(str: string): number {
 
 /**
  * Search Pixabay for illustrations matching a keyword
+ * Uses image_type=vector for cleaner illustration style
  */
 export async function searchIllustrations(
   keyword: string,
@@ -297,24 +315,44 @@ export async function searchIllustrations(
   }
   
   try {
-    // Request many results for diversity (removed editors_choice - too restrictive)
+    // First try vector type for cleaner illustration look
     const params = new URLSearchParams({
       key: apiKey,
-      q: `${keyword} illustration`,
-      image_type: 'illustration',
+      q: keyword,
+      image_type: 'vector', // Vector graphics look more like drawings
       orientation: 'horizontal',
-      per_page: Math.max(count, 30).toString(), // Get 30+ for maximum diversity
+      per_page: Math.max(count, 30).toString(),
       safesearch: 'true',
     });
     
-    const response = await fetch(`${PIXABAY_API_URL}?${params}`);
+    let response = await fetch(`${PIXABAY_API_URL}?${params}`);
     
     if (!response.ok) {
       console.error(`Pixabay API error: ${response.status}`);
       return [];
     }
     
-    const data = await response.json() as PixabayResponse;
+    let data = await response.json() as PixabayResponse;
+    
+    // If vector search returns few results, fall back to illustration
+    if (data.hits.length < 5) {
+      console.log(`Only ${data.hits.length} vector results for "${keyword}", trying illustration type`);
+      const illustrationParams = new URLSearchParams({
+        key: apiKey,
+        q: keyword,
+        image_type: 'illustration',
+        orientation: 'horizontal',
+        per_page: Math.max(count, 30).toString(),
+        safesearch: 'true',
+      });
+      
+      response = await fetch(`${PIXABAY_API_URL}?${illustrationParams}`);
+      if (response.ok) {
+        const illustrationData = await response.json() as PixabayResponse;
+        // Combine results, preferring vectors
+        data.hits = [...data.hits, ...illustrationData.hits];
+      }
+    }
     
     // Return the webformat URLs (640px wide, good for thumbnails)
     return data.hits.map(hit => hit.webformatURL);
