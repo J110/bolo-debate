@@ -399,37 +399,37 @@ class _PageIndicator extends StatelessWidget {
 class BoloBanners {
   BoloBanners._();
 
-  // Curated Pixabay ILLUSTRATION URLs for banners - multiple per category for variety
+  // Curated Pixabay ILLUSTRATION URLs for banners - verified working URLs
   static const _voiceImages = [
-    'https://cdn.pixabay.com/photo/2017/01/31/17/53/microphone-2025459_640.png',
-    'https://cdn.pixabay.com/photo/2016/10/09/19/19/microphone-1726379_640.png',
-    'https://cdn.pixabay.com/photo/2014/04/02/10/55/microphone-304176_640.png',
-    'https://cdn.pixabay.com/photo/2013/07/12/18/20/microphone-153585_640.png',
-    'https://cdn.pixabay.com/photo/2016/08/16/09/53/international-conference-1597531_640.jpg',
+    'https://cdn.pixabay.com/photo/2016/11/23/14/37/audio-1853532_640.jpg',
+    'https://cdn.pixabay.com/photo/2016/11/22/19/17/buildings-1850129_640.jpg',
+    'https://cdn.pixabay.com/photo/2018/09/27/09/22/artificial-intelligence-3706562_640.jpg',
+    'https://cdn.pixabay.com/photo/2017/03/23/09/34/artificial-intelligence-2167835_640.jpg',
+    'https://cdn.pixabay.com/photo/2016/12/29/18/44/blog-1939451_640.jpg',
   ];
 
   static const _debateImages = [
-    'https://cdn.pixabay.com/photo/2017/01/31/14/03/interview-2024328_640.png',
-    'https://cdn.pixabay.com/photo/2018/03/22/02/37/speech-bubble-3249879_640.png',
-    'https://cdn.pixabay.com/photo/2017/06/20/08/44/speaking-2422015_640.jpg',
-    'https://cdn.pixabay.com/photo/2016/06/03/15/35/presentation-1433291_640.png',
-    'https://cdn.pixabay.com/photo/2017/10/31/00/44/video-conference-2904716_640.png',
+    'https://cdn.pixabay.com/photo/2018/03/10/12/00/teamwork-3213924_640.jpg',
+    'https://cdn.pixabay.com/photo/2017/08/10/08/47/laptop-2620118_640.jpg',
+    'https://cdn.pixabay.com/photo/2015/01/08/18/27/startup-593341_640.jpg',
+    'https://cdn.pixabay.com/photo/2016/11/29/06/18/home-office-1867761_640.jpg',
+    'https://cdn.pixabay.com/photo/2019/04/14/10/27/book-4126483_640.jpg',
   ];
 
   static const _trendingImages = [
-    'https://cdn.pixabay.com/photo/2017/06/10/07/18/list-2389219_640.png',
-    'https://cdn.pixabay.com/photo/2016/06/03/15/35/business-1433291_640.png',
-    'https://cdn.pixabay.com/photo/2016/03/26/13/09/cup-1280537_640.png',
-    'https://cdn.pixabay.com/photo/2017/01/29/13/21/mobile-phone-2017658_640.png',
-    'https://cdn.pixabay.com/photo/2016/11/19/15/40/chart-1839304_640.png',
+    'https://cdn.pixabay.com/photo/2016/11/27/21/42/stock-1863880_640.jpg',
+    'https://cdn.pixabay.com/photo/2017/07/10/23/43/question-mark-2492009_640.jpg',
+    'https://cdn.pixabay.com/photo/2018/05/18/15/30/web-design-3411373_640.jpg',
+    'https://cdn.pixabay.com/photo/2016/10/09/08/32/digital-marketing-1725340_640.jpg',
+    'https://cdn.pixabay.com/photo/2017/10/10/21/47/computer-2838921_640.jpg',
   ];
 
   static const _communityImages = [
-    'https://cdn.pixabay.com/photo/2017/01/31/20/53/network-2027147_640.png',
-    'https://cdn.pixabay.com/photo/2016/11/08/05/26/woman-1807533_640.jpg',
-    'https://cdn.pixabay.com/photo/2017/07/31/11/44/group-2557408_640.jpg',
-    'https://cdn.pixabay.com/photo/2016/10/09/08/32/digital-marketing-1725340_640.jpg',
-    'https://cdn.pixabay.com/photo/2019/10/09/07/28/development-4536630_640.png',
+    'https://cdn.pixabay.com/photo/2017/08/06/22/01/people-2596150_640.jpg',
+    'https://cdn.pixabay.com/photo/2019/10/09/07/28/development-4536630_640.jpg',
+    'https://cdn.pixabay.com/photo/2017/01/14/10/56/people-1979261_640.jpg',
+    'https://cdn.pixabay.com/photo/2016/02/19/11/53/networking-1209738_640.jpg',
+    'https://cdn.pixabay.com/photo/2016/06/03/13/57/digital-marketing-1433427_640.jpg',
   ];
 
   /// Pick a random image from a list
