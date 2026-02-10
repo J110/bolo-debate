@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:bolo_debate/core/theme/app_theme.dart';
 import 'package:bolo_debate/core/services/router_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Allow Google Fonts to fetch fonts at runtime (for Hindi/Devanagari support)
+  GoogleFonts.config.allowRuntimeFetching = true;
   
   // Set preferred orientations
   await SystemChrome.setPreferredOrientations([

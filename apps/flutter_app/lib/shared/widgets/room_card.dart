@@ -453,13 +453,13 @@ $shareUrl''';
                       ),
                     ),
                   ),
-                  // Apply high contrast grayscale + posterize effect for illustration look
+                  // STEP 1: High contrast + posterize matrix - reduces detail like a drawing
                   ColorFiltered(
                     colorFilter: const ColorFilter.matrix(<double>[
-                      0.4, 0.4, 0.4, 0, -30,  // Higher contrast, darker shadows
-                      0.4, 0.4, 0.4, 0, -30,
-                      0.4, 0.4, 0.4, 0, -30,
-                      0,   0,   0,   1,   0,
+                      1.5, -0.3, -0.3, 0, -40,  // Boost red, reduce others, darken
+                      -0.3, 1.5, -0.3, 0, -40,  // Boost green, reduce others, darken
+                      -0.3, -0.3, 1.5, 0, -40,  // Boost blue, reduce others, darken
+                      0,    0,    0,   1,   0,
                     ]),
                     child: CachedNetworkImage(
                       imageUrl: _getImageUrl(room),
@@ -468,13 +468,27 @@ $shareUrl''';
                       errorWidget: (context, url, error) => const SizedBox.shrink(),
                     ),
                   ),
-                  // Strong color tint layer - creates bold duotone art effect
+                  // STEP 2: Saturation boost layer - makes colors more vibrant/painted
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          overlayTheme.primary.withOpacity(0.85),
-                          overlayTheme.secondary.withOpacity(0.80),
+                          overlayTheme.primary.withOpacity(0.70),
+                          overlayTheme.secondary.withOpacity(0.65),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      backgroundBlendMode: BlendMode.saturation,
+                    ),
+                  ),
+                  // STEP 3: Color overlay - creates the duotone illustration effect
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          overlayTheme.primary.withOpacity(0.80),
+                          overlayTheme.secondary.withOpacity(0.75),
                         ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
@@ -482,34 +496,50 @@ $shareUrl''';
                       backgroundBlendMode: BlendMode.color,
                     ),
                   ),
-                  // Multiply layer for deeper shadows
+                  // STEP 4: Darken layer - creates painted shadow depth
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          overlayTheme.primary.withOpacity(0.4),
-                          overlayTheme.secondary.withOpacity(0.5),
+                          Colors.black.withOpacity(0.15),
+                          overlayTheme.primary.withOpacity(0.35),
+                          overlayTheme.secondary.withOpacity(0.45),
                         ],
+                        stops: const [0.0, 0.5, 1.0],
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                       ),
-                      backgroundBlendMode: BlendMode.multiply,
+                      backgroundBlendMode: BlendMode.darken,
                     ),
                   ),
-                  // Soft light highlight for artistic glow
+                  // STEP 5: Screen highlight - adds painted light effect
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: RadialGradient(
+                        colors: [
+                          Colors.white.withOpacity(0.25),
+                          Colors.white.withOpacity(0.08),
+                          Colors.transparent,
+                        ],
+                        stops: const [0.0, 0.4, 1.0],
+                        center: Alignment.topLeft,
+                        radius: 1.2,
+                      ),
+                      backgroundBlendMode: BlendMode.screen,
+                    ),
+                  ),
+                  // STEP 6: Overlay for final painted texture look
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          Colors.white.withOpacity(0.15),
-                          Colors.transparent,
-                          overlayTheme.primary.withOpacity(0.2),
+                          overlayTheme.secondary.withOpacity(0.15),
+                          overlayTheme.primary.withOpacity(0.20),
                         ],
-                        stops: const [0.0, 0.4, 1.0],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                        begin: Alignment.topRight,
+                        end: Alignment.bottomLeft,
                       ),
-                      backgroundBlendMode: BlendMode.softLight,
+                      backgroundBlendMode: BlendMode.overlay,
                     ),
                   ),
                   // Status badge (top right)
