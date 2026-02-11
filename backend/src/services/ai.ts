@@ -966,17 +966,29 @@ Respond in JSON format:
             continue;
           }
 
-          // Check if similar topic exists in active rooms
-          const activeRooms = await prisma.room.findMany({
-            where: { status: { in: ['LIVE', 'SCHEDULED'] } },
-            select: { title: true }
-          });
-          const isDuplicateInRooms = activeRooms.some(room => 
-            room.title.toLowerCase().includes(topic.title.toLowerCase().substring(0, 30)) ||
-            topic.title.toLowerCase().includes(room.title.toLowerCase().substring(0, 30))
-          );
+          // Check if similar topic exists in active rooms using semantic similarity
+          const { isActiveTopic } = await import('./duplicate-checker.js');
+          const isDuplicateInRooms = await isActiveTopic(topic.title);
           if (isDuplicateInRooms) {
             console.log(`  ⏭️ Similar topic in active rooms: ${topic.title.substring(0, 40)}...`);
+            continue;
+          }
+          
+          // Also check against existing topics in the queue (semantic match)
+          const queuedTopics = await prisma.topicQueue.findMany({
+            where: { isUsed: false },
+            select: { title: true }
+          });
+          const { calculateSimilarity } = await import('./duplicate-checker.js');
+          const isSimilarToQueued = queuedTopics.some(q => {
+            const sim = calculateSimilarity(topic.title, q.title);
+            if (sim >= 0.5) {
+              console.log(`  ⏭️ Similar to queued topic (${(sim*100).toFixed(0)}%): ${q.title.substring(0, 40)}...`);
+              return true;
+            }
+            return false;
+          });
+          if (isSimilarToQueued) {
             continue;
           }
 
