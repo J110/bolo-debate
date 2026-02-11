@@ -46,15 +46,18 @@ class LiveKitService extends ChangeNotifier {
   List<RemoteParticipant> get remoteParticipants => 
       _room?.remoteParticipants.values.toList() ?? [];
 
-  Future<bool> connect(String token, String roomId) async {
+  Future<bool> connect(String token, String roomId, {String? url}) async {
     if (_isConnecting || _isConnected) return true;
     
     _isConnecting = true;
     _error = null;
     notifyListeners();
 
+    // Use URL from API if provided, otherwise fall back to constant
+    final livekitUrl = url ?? AppConstants.livekitUrl;
+
     try {
-      print('🔄 Connecting to LiveKit: ${AppConstants.livekitUrl}');
+      print('🔄 Connecting to LiveKit: $livekitUrl');
       
       _room = Room(
         roomOptions: const RoomOptions(
@@ -71,7 +74,7 @@ class LiveKitService extends ChangeNotifier {
 
       // Connect to LiveKit
       await _room!.connect(
-        AppConstants.livekitUrl,
+        livekitUrl,
         token,
         connectOptions: const ConnectOptions(
           autoSubscribe: true,

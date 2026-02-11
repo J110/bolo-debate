@@ -109,7 +109,8 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
       
       if (response['success'] == true && response['data'] != null) {
         final token = response['data']['token'] as String;
-        final connected = await _liveKitService.connect(token, widget.roomId);
+        final url = response['data']['url'] as String?; // Get LiveKit URL from API
+        final connected = await _liveKitService.connect(token, widget.roomId, url: url);
         
         if (mounted) {
           setState(() {

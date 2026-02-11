@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../config/database.js';
+import { config } from '../config/index.js';
 import { ParticipantRole } from '@prisma/client';
 import { authenticate, optionalAuth, getUser } from '../middleware/auth.js';
 import { getLiveKitToken } from '../services/livekit.js';
@@ -464,7 +465,10 @@ export async function roomRoutes(app: FastifyInstance) {
 
     return reply.send({
       success: true,
-      data: { token },
+      data: { 
+        token,
+        url: config.livekit.url, // Return LiveKit URL so client doesn't need to hardcode
+      },
     });
   });
 
