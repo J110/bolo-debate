@@ -322,12 +322,14 @@ export function getCategoriesNeedingTopics(): string[] {
  * Picks a generic topic for room creation
  * Returns null if no suitable topic is available
  * Marks topic as used to prevent duplicates
+ * Returns originalTitle (English) for duplicate checking even for Hindi topics
  */
 export async function pickGenericTopicForRoom(
   categoryId: string,
   language: 'English' | 'Hindi' = 'English'
 ): Promise<{
   title: string;
+  originalTitle: string; // Always English for duplicate checking
   description: string;
   sideALabel: string;
   sideBLabel: string;
@@ -357,8 +359,17 @@ export async function pickGenericTopicForRoom(
       }
     });
     
+    // For queued topics, try to find the English version for originalTitle
+    // If this is a Hindi topic, look for corresponding English topic
+    let originalTitle = queuedTopic.title;
+    if (language === 'Hindi' && queuedTopic.sourceHeadline) {
+      // sourceHeadline might store the English title
+      originalTitle = queuedTopic.sourceHeadline;
+    }
+    
     return {
       title: queuedTopic.title,
+      originalTitle,
       description: queuedTopic.description || '',
       sideALabel: queuedTopic.sideALabel,
       sideBLabel: queuedTopic.sideBLabel
@@ -382,6 +393,7 @@ export async function pickGenericTopicForRoom(
     
     return {
       title: language === 'Hindi' ? topic.titleHindi : topic.title,
+      originalTitle: topic.title, // Always English
       description: `A classic debate topic for ${categoryName}`,
       sideALabel: language === 'Hindi' ? topic.sideAHindi : topic.sideA,
       sideBLabel: language === 'Hindi' ? topic.sideBHindi : topic.sideB

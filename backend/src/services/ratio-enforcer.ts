@@ -225,11 +225,13 @@ export async function pickBalancedTopic(
   
   let topic: {
     title: string;
+    originalTitle?: string; // English title for duplicate checking
     description: string;
     sideALabel: string;
     sideBLabel: string;
   } | null = null;
   let selectedTopicType: TopicType = 'TRENDING';
+  let englishOriginalTitle: string = '';
   
   // STRICT: Try preferred type, only fallback if absolutely none available
   if (preferredTopicType === 'local') {
@@ -238,27 +240,35 @@ export async function pickBalancedTopic(
     const trendingResult = await pickTrendingTopic(categoryId);
     if (trendingResult) {
       topic = trendingResult;
+      englishOriginalTitle = trendingResult.title; // Trending topics are in English
       selectedTopicType = 'TRENDING';
     } else {
       // Only fallback if no trending at all
       console.log(`  ⚠️ No trending available, fallback to generic`);
-      topic = await pickGenericTopicForRoom(categoryId, preferredLanguage);
-      if (topic) {
-        const isDupe = await isActiveTopic(topic.title);
-        if (isDupe) topic = null;
-        else selectedTopicType = 'GENERIC';
+      const genericResult = await pickGenericTopicForRoom(categoryId, preferredLanguage);
+      if (genericResult) {
+        const isDupe = await isActiveTopic(genericResult.title, genericResult.originalTitle);
+        if (isDupe) {
+          topic = null;
+        } else {
+          topic = genericResult;
+          englishOriginalTitle = genericResult.originalTitle;
+          selectedTopicType = 'GENERIC';
+        }
       }
     }
   } else {
     // Must try GENERIC first
     console.log(`  📚 Looking for GENERIC topic...`);
-    topic = await pickGenericTopicForRoom(categoryId, preferredLanguage);
-    if (topic) {
-      const isDupe = await isActiveTopic(topic.title);
+    const genericResult = await pickGenericTopicForRoom(categoryId, preferredLanguage);
+    if (genericResult) {
+      const isDupe = await isActiveTopic(genericResult.title, genericResult.originalTitle);
       if (isDupe) {
         console.log(`  ⚠️ Generic is duplicate, trying another`);
         topic = null;
       } else {
+        topic = genericResult;
+        englishOriginalTitle = genericResult.originalTitle;
         selectedTopicType = 'GENERIC';
       }
     }
@@ -269,6 +279,7 @@ export async function pickBalancedTopic(
       const trendingResult = await pickTrendingTopic(categoryId);
       if (trendingResult) {
         topic = trendingResult;
+        englishOriginalTitle = trendingResult.title;
         selectedTopicType = 'TRENDING';
       }
     }
@@ -279,15 +290,15 @@ export async function pickBalancedTopic(
     return null;
   }
   
-  // Final duplicate check
-  const finalCheck = await isActiveTopic(topic.title);
+  // Use English original for duplicate checking
+  const originalTitle = englishOriginalTitle || topic.title;
+  
+  // Final duplicate check using the English title
+  const finalCheck = await isActiveTopic(topic.title, originalTitle);
   if (finalCheck) {
     console.log(`  ❌ Final check failed - duplicate topic`);
     return null;
   }
-  
-  // Store original English title for duplicate checking
-  const originalTitle = topic.title;
   
   // Translate to Hindi if needed (only for non-generic which already has Hindi)
   let finalTopic = { ...topic };

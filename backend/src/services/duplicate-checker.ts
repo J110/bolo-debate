@@ -161,11 +161,15 @@ export async function isDuplicateTopic(title: string): Promise<boolean> {
 /**
  * Checks if a topic is currently active (LIVE or SCHEDULED)
  * Uses fuzzy matching to catch semantic duplicates
- * Also checks originalTitle field for translated rooms
- * @param title The topic title to check
+ * Checks against both title and originalTitle to catch translated versions
+ * @param title The topic title to check (should be English for best results)
+ * @param originalEnglishTitle Optional - the English version of the title for cross-language matching
  * @returns true if active (or similar topic is active), false if not
  */
-export async function isActiveTopic(title: string): Promise<boolean> {
+export async function isActiveTopic(
+  title: string, 
+  originalEnglishTitle?: string
+): Promise<boolean> {
   const SIMILARITY_THRESHOLD = 0.5; // 50% word overlap = duplicate
   
   // Get all active rooms with both title and originalTitle
@@ -176,25 +180,29 @@ export async function isActiveTopic(title: string): Promise<boolean> {
     select: { title: true, originalTitle: true }
   });
   
-  // Check if any active room has similar title (against both title and originalTitle)
+  // Collect all titles to check against (both the input and its English original)
+  const titlesToCheck = [title];
+  if (originalEnglishTitle && originalEnglishTitle !== title) {
+    titlesToCheck.push(originalEnglishTitle);
+  }
+  
   for (const room of activeRooms) {
-    // Check against display title
-    const titleSimilarity = calculateSimilarity(title, room.title);
-    if (titleSimilarity >= SIMILARITY_THRESHOLD) {
-      console.log(`    ⚠️ Similar topic found (${(titleSimilarity * 100).toFixed(0)}% match):`);
-      console.log(`       New: "${title.substring(0, 50)}..."`);
-      console.log(`       Existing: "${room.title.substring(0, 50)}..."`);
-      return true;
+    // Collect all titles from the existing room
+    const existingTitles = [room.title];
+    if (room.originalTitle && room.originalTitle !== room.title) {
+      existingTitles.push(room.originalTitle);
     }
     
-    // Check against original title (for translated rooms)
-    if (room.originalTitle && room.originalTitle !== room.title) {
-      const originalSimilarity = calculateSimilarity(title, room.originalTitle);
-      if (originalSimilarity >= SIMILARITY_THRESHOLD) {
-        console.log(`    ⚠️ Similar to original (${(originalSimilarity * 100).toFixed(0)}% match):`);
-        console.log(`       New: "${title.substring(0, 50)}..."`);
-        console.log(`       Original: "${room.originalTitle.substring(0, 50)}..."`);
-        return true;
+    // Check all combinations
+    for (const newTitle of titlesToCheck) {
+      for (const existingTitle of existingTitles) {
+        const similarity = calculateSimilarity(newTitle, existingTitle);
+        if (similarity >= SIMILARITY_THRESHOLD) {
+          console.log(`    ⚠️ Similar topic found (${(similarity * 100).toFixed(0)}% match):`);
+          console.log(`       New: "${newTitle.substring(0, 50)}..."`);
+          console.log(`       Existing: "${existingTitle.substring(0, 50)}..."`);
+          return true;
+        }
       }
     }
   }
