@@ -55,7 +55,11 @@ const NEWS_SOURCES: NewsSource[] = [
   { name: 'TOI Bangalore', rssUrl: 'https://timesofindia.indiatimes.com/rssfeeds/-2128833038.cms', region: 'Bangalore' },
   { name: 'TOI Chennai', rssUrl: 'https://timesofindia.indiatimes.com/rssfeeds/2950623.cms', region: 'Chennai' },
   { name: 'TOI Hyderabad', rssUrl: 'https://timesofindia.indiatimes.com/rssfeeds/-2128816011.cms', region: 'Hyderabad' },
-  { name: 'TOI Kolkata', rssUrl: 'https://timesofindia.indiatimes.com/rssfeeds/2950623.cms', region: 'Kolkata' },
+  { name: 'TOI Kolkata', rssUrl: 'https://timesofindia.indiatimes.com/rssfeeds/-2128816762.cms', region: 'Kolkata' },
+  
+  // International sources (news relevant to Indian audience)
+  { name: 'TOI World', rssUrl: 'https://timesofindia.indiatimes.com/rssfeeds/296589292.cms', region: 'International' },
+  { name: 'NDTV World', rssUrl: 'https://feeds.feedburner.com/ndtvnews-world-news', region: 'International' },
 ];
 
 // Category keywords for classification (expanded for better coverage)

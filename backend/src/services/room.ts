@@ -410,15 +410,24 @@ async function createStaggeredRooms(
 
   // Each region starts with a different category for maximum diversity
   let categoryIndex = regionIndex % categories.length;
+  
+  // For local regions (not National/International), use STRICT mode
+  // This ensures Mumbai rooms only get Mumbai topics, etc.
+  const isLocalRegion = !['National', 'International'].includes(region.name);
+  const strictRegion = isLocalRegion;
+  
+  if (strictRegion) {
+    console.log(`  📍 Using STRICT region mode for ${region.name} - only local topics`);
+  }
 
-  // Create LIVE rooms using pickBalancedTopic for regional topics
+  // Create LIVE rooms using pickBalancedTopic
   for (let i = 0; i < liveNeeded; i++) {
     const category = categories[categoryIndex % categories.length];
     categoryIndex++;
     
     try {
-      // Use pickBalancedTopic which prioritizes regional topics
-      const topic = await pickBalancedTopic(category.id, regionId);
+      // Use strict mode for local regions
+      const topic = await pickBalancedTopic(category.id, regionId, strictRegion);
       
       if (topic) {
         const illustrationUrl = await getIllustrationForTitle(topic.originalTitle || topic.title);
@@ -436,7 +445,7 @@ async function createStaggeredRooms(
               regionId,
               categoryId: category.id,
               type: 'DEBATE',
-              topicType: topic.topicType, // Set topicType for tags
+              topicType: topic.topicType,
               sideALabel: topic.sideALabel,
               sideBLabel: topic.sideBLabel,
               language: topic.language,
@@ -451,6 +460,8 @@ async function createStaggeredRooms(
 
           console.log(`Created LIVE room [${region.name}] (${topic.language}, ${topic.topicType}): ${topic.title.substring(0, 40)}...`);
         }
+      } else if (strictRegion) {
+        console.log(`  ⚠️ No local topics for ${region.name} - skipping room creation`);
       }
     } catch (error) {
       console.error('Error creating live room:', error);
@@ -463,7 +474,7 @@ async function createStaggeredRooms(
     categoryIndex++;
     
     try {
-      const topic = await pickBalancedTopic(category.id, regionId);
+      const topic = await pickBalancedTopic(category.id, regionId, strictRegion);
       
       if (topic) {
         const illustrationUrl = await getIllustrationForTitle(topic.originalTitle || topic.title);
@@ -480,7 +491,7 @@ async function createStaggeredRooms(
             regionId,
             categoryId: category.id,
             type: 'DEBATE',
-            topicType: topic.topicType, // Set topicType for tags
+            topicType: topic.topicType,
             sideALabel: topic.sideALabel,
             sideBLabel: topic.sideBLabel,
             language: topic.language,
@@ -492,6 +503,8 @@ async function createStaggeredRooms(
         });
 
         console.log(`Created SCHEDULED room [${region.name}] (${topic.language}, ${topic.topicType}): ${topic.title.substring(0, 40)}...`);
+      } else if (strictRegion) {
+        console.log(`  ⚠️ No local topics for ${region.name} - skipping room creation`);
       }
     } catch (error) {
       console.error('Error creating scheduled room:', error);

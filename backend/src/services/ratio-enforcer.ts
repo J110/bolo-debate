@@ -127,13 +127,15 @@ export async function getNextTopicRequirements(): Promise<{
 
 /**
  * Pick a trending topic from the queue for the given category and region
- * Priority order:
- * 1. Region-specific + category match (best for regional rooms)
- * 2. Region-specific from any category
- * 3. Category match from any region
- * 4. Any trending topic
+ * @param categoryId - Category to match
+ * @param regionId - Region to match (optional)
+ * @param strictRegion - If true, ONLY return region-specific topics, no fallback
  */
-async function pickTrendingTopic(categoryId: string, regionId?: string): Promise<{
+async function pickTrendingTopic(
+  categoryId: string, 
+  regionId?: string,
+  strictRegion: boolean = false
+): Promise<{
   title: string;
   description: string;
   sideALabel: string;
@@ -150,11 +152,11 @@ async function pickTrendingTopic(categoryId: string, regionId?: string): Promise
     ]
   };
   
-  // Build search strategies in order of preference
+  // Build search strategies based on strictRegion mode
   const searchStrategies: Array<{ where: any; description: string }> = [];
   
   if (regionId) {
-    // 1. Region-specific + specific category (best match for regional rooms)
+    // 1. Region-specific + specific category (best match)
     searchStrategies.push({
       where: { ...baseWhere, categoryId, regionId },
       description: 'region + category'
@@ -165,16 +167,20 @@ async function pickTrendingTopic(categoryId: string, regionId?: string): Promise
       description: 'region only'
     });
   }
-  // 3. Specific category from any region
-  searchStrategies.push({
-    where: { ...baseWhere, categoryId },
-    description: 'category only'
-  });
-  // 4. Any trending topic
-  searchStrategies.push({
-    where: baseWhere,
-    description: 'any trending'
-  });
+  
+  // Only add fallback strategies if NOT in strict region mode
+  if (!strictRegion) {
+    // 3. Specific category from any region
+    searchStrategies.push({
+      where: { ...baseWhere, categoryId },
+      description: 'category only'
+    });
+    // 4. Any trending topic
+    searchStrategies.push({
+      where: baseWhere,
+      description: 'any trending'
+    });
+  }
   
   for (const strategy of searchStrategies) {
     const topics = await prisma.topicQueue.findMany({
@@ -217,7 +223,11 @@ async function pickTrendingTopic(categoryId: string, regionId?: string): Promise
     }
   }
   
-  console.log(`    ❌ No valid trending topics found`);
+  if (strictRegion) {
+    console.log(`    ❌ No regional topics found for this region (strict mode)`);
+  } else {
+    console.log(`    ❌ No valid trending topics found`);
+  }
   return null;
 }
 
@@ -226,10 +236,12 @@ async function pickTrendingTopic(categoryId: string, regionId?: string): Promise
  * Uses strict alternation between trending and generic (50:50)
  * @param categoryId - The category to pick a topic for
  * @param regionId - Optional region ID to prioritize region-specific topics
+ * @param strictRegion - If true, ONLY return region-specific topics (no fallback to national/generic)
  */
 export async function pickBalancedTopic(
   categoryId: string,
-  regionId?: string
+  regionId?: string,
+  strictRegion: boolean = false
 ): Promise<{
   title: string;
   originalTitle: string; // Always English, for duplicate checking
@@ -241,7 +253,7 @@ export async function pickBalancedTopic(
 } | null> {
   const { preferredTopicType, preferredLanguage } = await getNextTopicRequirements();
   
-  console.log(`  🎯 Picking topic: type=${preferredTopicType}, lang=${preferredLanguage}, region=${regionId || 'any'}`);
+  console.log(`  🎯 Picking topic: type=${preferredTopicType}, lang=${preferredLanguage}, region=${regionId || 'any'}, strict=${strictRegion}`);
   
   let topic: {
     title: string;
@@ -253,11 +265,23 @@ export async function pickBalancedTopic(
   let selectedTopicType: TopicType = 'TRENDING';
   let englishOriginalTitle: string = '';
   
-  // STRICT: Try preferred type, only fallback if absolutely none available
-  if (preferredTopicType === 'local') {
+  // STRICT REGION MODE: Only use trending topics from this specific region
+  // No fallback to generic or national topics
+  if (strictRegion) {
+    console.log(`  📍 STRICT REGION MODE - only regional trending topics`);
+    const trendingResult = await pickTrendingTopic(categoryId, regionId, true);
+    if (trendingResult) {
+      topic = trendingResult;
+      englishOriginalTitle = trendingResult.title;
+      selectedTopicType = 'TRENDING';
+    }
+    // No fallback in strict mode - return null if no regional topic
+  } 
+  // NORMAL MODE: Use ratio-based selection with fallbacks
+  else if (preferredTopicType === 'local') {
     // Must try TRENDING first
     console.log(`  📰 Looking for TRENDING topic...`);
-    const trendingResult = await pickTrendingTopic(categoryId, regionId);
+    const trendingResult = await pickTrendingTopic(categoryId, regionId, false);
     if (trendingResult) {
       topic = trendingResult;
       englishOriginalTitle = trendingResult.title; // Trending topics are in English
@@ -296,7 +320,7 @@ export async function pickBalancedTopic(
     // Only fallback to trending if no generic
     if (!topic) {
       console.log(`  ⚠️ No generic available, fallback to trending`);
-      const trendingResult = await pickTrendingTopic(categoryId, regionId);
+      const trendingResult = await pickTrendingTopic(categoryId, regionId, false);
       if (trendingResult) {
         topic = trendingResult;
         englishOriginalTitle = trendingResult.title;
