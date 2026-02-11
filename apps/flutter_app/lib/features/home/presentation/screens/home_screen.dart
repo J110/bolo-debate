@@ -15,10 +15,12 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedCategory = ref.watch(selectedCategoryProvider);
+    final selectedRegion = ref.watch(selectedRegionProvider);
     
-    // Create filter params (no region filter - regions are now tags, not filters)
+    // Create filter params with both category and region
     final filterParams = RoomFilterParams(
       categoryId: selectedCategory,
+      regionId: selectedRegion,
     );
     
     final liveRoomsAsync = ref.watch(liveRoomsProvider(filterParams));
@@ -129,7 +131,7 @@ class HomeScreen extends ConsumerWidget {
               ),
             ),
             
-            // Categories section with header
+            // Filters section - Categories and Regions
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -143,8 +145,26 @@ class HomeScreen extends ConsumerWidget {
             ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.only(top: 8, bottom: 8),
+                padding: const EdgeInsets.only(top: 8, bottom: 4),
                 child: CategoryChips(),
+              ),
+            ),
+            // Regions filter
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Text(
+                  'Regions',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8, bottom: 8),
+                child: _RegionChips(),
               ),
             ),
 
@@ -403,6 +423,75 @@ class _ServerErrorWidget extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _RegionChips extends ConsumerWidget {
+  const _RegionChips();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final regionsAsync = ref.watch(regionsProvider);
+    final selectedRegion = ref.watch(selectedRegionProvider);
+
+    return regionsAsync.when(
+      data: (regions) {
+        return SizedBox(
+          height: 40,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: regions.length + 1,
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                // All regions chip
+                final isSelected = selectedRegion == null;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: FilterChip(
+                    avatar: const Icon(Icons.public, size: 16),
+                    label: const Text('All Regions'),
+                    selected: isSelected,
+                    onSelected: (_) {
+                      ref.read(selectedRegionProvider.notifier).setRegion(null);
+                    },
+                    selectedColor: Colors.teal.withOpacity(0.2),
+                    checkmarkColor: Colors.teal,
+                  ),
+                );
+              }
+
+              final region = regions[index - 1];
+              final isSelected = selectedRegion == region.id;
+
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: FilterChip(
+                  avatar: Icon(
+                    region.name == 'National' ? Icons.flag : Icons.location_city,
+                    size: 16,
+                    color: isSelected ? Colors.teal : Colors.grey[600],
+                  ),
+                  label: Text(region.name),
+                  selected: isSelected,
+                  onSelected: (_) {
+                    ref.read(selectedRegionProvider.notifier).setRegion(
+                        isSelected ? null : region.id);
+                  },
+                  selectedColor: Colors.teal.withOpacity(0.2),
+                  checkmarkColor: Colors.teal,
+                ),
+              );
+            },
+          ),
+        );
+      },
+      loading: () => const SizedBox(
+        height: 40,
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      ),
+      error: (_, __) => const SizedBox(height: 40),
     );
   }
 }
