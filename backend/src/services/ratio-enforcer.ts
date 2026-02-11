@@ -126,77 +126,95 @@ export async function getNextTopicRequirements(): Promise<{
 // isTopicInActiveRooms is now handled by duplicate-checker.ts isActiveTopic()
 
 /**
- * Pick a trending topic from the queue
- * First tries the specified category, then falls back to ANY category
+ * Pick a trending topic from the queue for the given category and region
+ * Priority order:
+ * 1. Region-specific + category match (best for regional rooms)
+ * 2. Region-specific from any category
+ * 3. Category match from any region
+ * 4. Any trending topic
  */
-async function pickTrendingTopic(categoryId: string): Promise<{
+async function pickTrendingTopic(categoryId: string, regionId?: string): Promise<{
   title: string;
   description: string;
   sideALabel: string;
   sideBLabel: string;
   topicId: string;
+  topicRegionId?: string;
 } | null> {
-  // First try: Get trending topics for this specific category
-  let trendingTopics = await prisma.topicQueue.findMany({
-    where: {
-      categoryId,
-      isUsed: false,
-      topicType: 'TRENDING',
-      OR: [
-        { expiresAt: null },
-        { expiresAt: { gt: new Date() } }
-      ]
-    },
-    orderBy: { trendingScore: 'desc' },
-    take: 20
+  const baseWhere = {
+    isUsed: false,
+    topicType: 'TRENDING' as const,
+    OR: [
+      { expiresAt: null },
+      { expiresAt: { gt: new Date() } }
+    ]
+  };
+  
+  // Build search strategies in order of preference
+  const searchStrategies: Array<{ where: any; description: string }> = [];
+  
+  if (regionId) {
+    // 1. Region-specific + specific category (best match for regional rooms)
+    searchStrategies.push({
+      where: { ...baseWhere, categoryId, regionId },
+      description: 'region + category'
+    });
+    // 2. Region-specific from any category
+    searchStrategies.push({
+      where: { ...baseWhere, regionId },
+      description: 'region only'
+    });
+  }
+  // 3. Specific category from any region
+  searchStrategies.push({
+    where: { ...baseWhere, categoryId },
+    description: 'category only'
+  });
+  // 4. Any trending topic
+  searchStrategies.push({
+    where: baseWhere,
+    description: 'any trending'
   });
   
-  console.log(`    📰 Found ${trendingTopics.length} trending topics for category`);
-  
-  // Second try: If no topics for this category, get from ANY category
-  if (trendingTopics.length === 0) {
-    console.log(`    🔄 No trending for category, trying ANY category...`);
-    trendingTopics = await prisma.topicQueue.findMany({
-      where: {
-        isUsed: false,
-        topicType: 'TRENDING',
-        OR: [
-          { expiresAt: null },
-          { expiresAt: { gt: new Date() } }
-        ]
-      },
+  for (const strategy of searchStrategies) {
+    const topics = await prisma.topicQueue.findMany({
+      where: strategy.where,
       orderBy: { trendingScore: 'desc' },
       take: 20
     });
-    console.log(`    📰 Found ${trendingTopics.length} trending topics from all categories`);
-  }
-  
-  for (const topic of trendingTopics) {
-    // Check for duplicates/similar topics in active rooms
-    const isDuplicate = await isActiveTopic(topic.title);
-    if (isDuplicate) {
-      console.log(`    ⏭️ Skipping duplicate: ${topic.title.substring(0, 40)}...`);
-      continue;
-    }
     
-    // Mark as used
-    await prisma.topicQueue.update({
-      where: { id: topic.id },
-      data: { 
-        isUsed: true,
-        usageCount: { increment: 1 }
+    if (topics.length === 0) continue;
+    
+    console.log(`    📰 Found ${topics.length} trending topics (${strategy.description})`);
+    
+    for (const topic of topics) {
+      // Check for duplicates/similar topics in active rooms
+      const isDuplicate = await isActiveTopic(topic.title);
+      if (isDuplicate) {
+        console.log(`    ⏭️ Skipping duplicate: ${topic.title.substring(0, 40)}...`);
+        continue;
       }
-    });
-    
-    console.log(`    ✅ Selected trending: ${topic.title.substring(0, 40)}...`);
-    
-    return {
-      title: topic.title,
-      description: topic.description || '',
-      sideALabel: topic.sideALabel,
-      sideBLabel: topic.sideBLabel,
-      topicId: topic.id
-    };
+      
+      // Mark as used
+      await prisma.topicQueue.update({
+        where: { id: topic.id },
+        data: { 
+          isUsed: true,
+          usageCount: { increment: 1 }
+        }
+      });
+      
+      console.log(`    ✅ Selected trending: ${topic.title.substring(0, 40)}...`);
+      
+      return {
+        title: topic.title,
+        description: topic.description || '',
+        sideALabel: topic.sideALabel,
+        sideBLabel: topic.sideBLabel,
+        topicId: topic.id,
+        topicRegionId: topic.regionId || undefined
+      };
+    }
   }
   
   console.log(`    ❌ No valid trending topics found`);
@@ -206,10 +224,12 @@ async function pickTrendingTopic(categoryId: string): Promise<{
 /**
  * Pick the next topic for room creation based on ratio requirements
  * Uses strict alternation between trending and generic (50:50)
+ * @param categoryId - The category to pick a topic for
+ * @param regionId - Optional region ID to prioritize region-specific topics
  */
 export async function pickBalancedTopic(
   categoryId: string,
-  regionTags: string[] = ['National']
+  regionId?: string
 ): Promise<{
   title: string;
   originalTitle: string; // Always English, for duplicate checking
@@ -221,7 +241,7 @@ export async function pickBalancedTopic(
 } | null> {
   const { preferredTopicType, preferredLanguage } = await getNextTopicRequirements();
   
-  console.log(`  🎯 Picking topic: type=${preferredTopicType}, lang=${preferredLanguage}`);
+  console.log(`  🎯 Picking topic: type=${preferredTopicType}, lang=${preferredLanguage}, region=${regionId || 'any'}`);
   
   let topic: {
     title: string;
@@ -237,7 +257,7 @@ export async function pickBalancedTopic(
   if (preferredTopicType === 'local') {
     // Must try TRENDING first
     console.log(`  📰 Looking for TRENDING topic...`);
-    const trendingResult = await pickTrendingTopic(categoryId);
+    const trendingResult = await pickTrendingTopic(categoryId, regionId);
     if (trendingResult) {
       topic = trendingResult;
       englishOriginalTitle = trendingResult.title; // Trending topics are in English
@@ -276,7 +296,7 @@ export async function pickBalancedTopic(
     // Only fallback to trending if no generic
     if (!topic) {
       console.log(`  ⚠️ No generic available, fallback to trending`);
-      const trendingResult = await pickTrendingTopic(categoryId);
+      const trendingResult = await pickTrendingTopic(categoryId, regionId);
       if (trendingResult) {
         topic = trendingResult;
         englishOriginalTitle = trendingResult.title;

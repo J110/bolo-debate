@@ -305,7 +305,7 @@ async function createCategoryBasedRooms(
   for (let i = 0; i < liveNeeded; i++) {
     try {
       // Use balanced topic picker
-      const topic = await pickBalancedTopic(categoryId, [region.name, 'National']);
+      const topic = await pickBalancedTopic(categoryId, regionId);
       
       if (topic) {
         // Fetch illustration
@@ -351,7 +351,7 @@ async function createCategoryBasedRooms(
   for (let i = 0; i < scheduledNeeded; i++) {
     try {
       // Use balanced topic picker
-      const topic = await pickBalancedTopic(categoryId, [region.name, 'National']);
+      const topic = await pickBalancedTopic(categoryId, regionId);
       
       if (topic) {
         // Fetch illustration
