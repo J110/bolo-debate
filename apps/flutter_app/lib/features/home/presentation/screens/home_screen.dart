@@ -131,30 +131,12 @@ class HomeScreen extends ConsumerWidget {
               ),
             ),
             
-            // Filters section - Categories and Regions
+            // Combined Filters - Categories and Regions in one row
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                 child: Text(
-                  'Categories',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 8, bottom: 4),
-                child: CategoryChips(),
-              ),
-            ),
-            // Regions filter
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: Text(
-                  'Regions',
+                  'Filter',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
@@ -164,7 +146,7 @@ class HomeScreen extends ConsumerWidget {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.only(top: 8, bottom: 8),
-                child: _RegionChips(),
+                child: _CombinedFilterChips(),
               ),
             ),
 
@@ -427,49 +409,87 @@ class _ServerErrorWidget extends StatelessWidget {
   }
 }
 
-class _RegionChips extends ConsumerWidget {
-  const _RegionChips();
+class _CombinedFilterChips extends ConsumerWidget {
+  const _CombinedFilterChips();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final categoriesAsync = ref.watch(categoriesProvider);
     final regionsAsync = ref.watch(regionsProvider);
+    final selectedCategory = ref.watch(selectedCategoryProvider);
     final selectedRegion = ref.watch(selectedRegionProvider);
 
-    return regionsAsync.when(
-      data: (regions) {
-        return SizedBox(
-          height: 40,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: regions.length + 1,
-            itemBuilder: (context, index) {
-              if (index == 0) {
-                // All regions chip
-                final isSelected = selectedRegion == null;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    avatar: const Icon(Icons.public, size: 16),
-                    label: const Text('All Regions'),
-                    selected: isSelected,
-                    onSelected: (_) {
-                      ref.read(selectedRegionProvider.notifier).setRegion(null);
-                    },
-                    selectedColor: Colors.teal.withOpacity(0.2),
-                    checkmarkColor: Colors.teal,
-                  ),
-                );
-              }
-
-              final region = regions[index - 1];
+    return categoriesAsync.when(
+      data: (categories) {
+        return regionsAsync.when(
+          data: (regions) {
+            // Build combined list: "All" + Categories + Divider + Regions
+            final items = <Widget>[];
+            
+            // "All" chip - clears both filters
+            final isAllSelected = selectedCategory == null && selectedRegion == null;
+            items.add(Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: FilterChip(
+                label: const Text('All'),
+                selected: isAllSelected,
+                onSelected: (_) {
+                  ref.read(selectedCategoryProvider.notifier).state = null;
+                  ref.read(selectedRegionProvider.notifier).setRegion(null);
+                },
+                selectedColor: AppColors.primary.withOpacity(0.2),
+                checkmarkColor: AppColors.primary,
+              ),
+            ));
+            
+            // Category chips
+            for (final category in categories) {
+              final isSelected = selectedCategory == category.id;
+              final color = Color(int.parse(category.color.replaceFirst('#', '0xFF')));
+              
+              items.add(Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: FilterChip(
+                  avatar: Text(category.icon, style: const TextStyle(fontSize: 14)),
+                  label: Text(category.name),
+                  selected: isSelected,
+                  onSelected: (_) {
+                    ref.read(selectedCategoryProvider.notifier).state = 
+                        isSelected ? null : category.id;
+                  },
+                  selectedColor: color.withOpacity(0.2),
+                  checkmarkColor: color,
+                ),
+              ));
+            }
+            
+            // Divider
+            items.add(Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Container(
+                height: 24,
+                width: 1,
+                color: Colors.grey[300],
+              ),
+            ));
+            
+            // Region chips
+            for (final region in regions) {
               final isSelected = selectedRegion == region.id;
-
-              return Padding(
+              IconData icon;
+              if (region.name == 'National') {
+                icon = Icons.flag;
+              } else if (region.name == 'International') {
+                icon = Icons.public;
+              } else {
+                icon = Icons.location_city;
+              }
+              
+              items.add(Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: FilterChip(
                   avatar: Icon(
-                    region.name == 'National' ? Icons.flag : Icons.location_city,
+                    icon,
                     size: 16,
                     color: isSelected ? Colors.teal : Colors.grey[600],
                   ),
@@ -482,9 +502,23 @@ class _RegionChips extends ConsumerWidget {
                   selectedColor: Colors.teal.withOpacity(0.2),
                   checkmarkColor: Colors.teal,
                 ),
-              );
-            },
+              ));
+            }
+            
+            return SizedBox(
+              height: 40,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                children: items,
+              ),
+            );
+          },
+          loading: () => const SizedBox(
+            height: 40,
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
           ),
+          error: (_, __) => const SizedBox(height: 40),
         );
       },
       loading: () => const SizedBox(

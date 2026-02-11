@@ -406,54 +406,40 @@ async function createStaggeredRooms(
   const now = new Date();
   
   // Offset based on region index to stagger rooms across regions
-  // Each region gets a 3-minute offset (0, 3, 6, 9, 12, 15, 18 minutes)
   const regionOffset = regionIndex * 3;
 
   // Each region starts with a different category for maximum diversity
-  // This ensures different regions don't create rooms in the same category simultaneously
   let categoryIndex = regionIndex % categories.length;
 
-  // Create LIVE rooms (started in the past at staggered intervals)
+  // Create LIVE rooms using pickBalancedTopic for regional topics
   for (let i = 0; i < liveNeeded; i++) {
     const category = categories[categoryIndex % categories.length];
-    categoryIndex++; // Move to next category for next room
-    
-    // Each room gets random language independently
-    const language = getRandomLanguage();
+    categoryIndex++;
     
     try {
-      const topics = await generateDebateTopics(regionId, category.id, 1);
+      // Use pickBalancedTopic which prioritizes regional topics
+      const topic = await pickBalancedTopic(category.id, regionId);
       
-      if (topics.length > 0) {
-        let topic = topics[0];
+      if (topic) {
+        const illustrationUrl = await getIllustrationForTitle(topic.originalTitle || topic.title);
         
-        // Fetch illustration from English title BEFORE translation
-        const illustrationUrl = await getIllustrationForTitle(topic.title);
-        
-        // Translate to Hindi if room language is Hindi
-        if (language === 'Hindi') {
-          const translated = await translateTopicToHindi(topic);
-          topic = { ...topic, ...translated };
-        }
-        
-        // Stagger start times: base offset per region + room index offset
-        // Region 0: 3 min ago, Region 1: 6 min ago, Region 2: 9 min ago, etc.
         const minutesAgo = regionOffset + 3 + (i * ROOM_INTERVAL_MINUTES);
         const startedAt = new Date(now.getTime() - minutesAgo * 60 * 1000);
         const endsAt = new Date(startedAt.getTime() + ROOM_DURATION_MS);
         
-        // Only create if room would still be live (not ended)
         if (endsAt > now) {
           await prisma.room.create({
             data: {
               title: topic.title,
+              originalTitle: topic.originalTitle,
               description: topic.description,
               regionId,
               categoryId: category.id,
               type: 'DEBATE',
+              topicType: topic.topicType, // Set topicType for tags
               sideALabel: topic.sideALabel,
               sideBLabel: topic.sideBLabel,
-              language,
+              language: topic.language,
               illustrationUrl,
               scheduledAt: startedAt,
               startedAt: startedAt,
@@ -463,7 +449,7 @@ async function createStaggeredRooms(
             },
           });
 
-          console.log(`Created LIVE room [${region.name}] (${language}): ${topic.title} (started ${minutesAgo}m ago)`);
+          console.log(`Created LIVE room [${region.name}] (${topic.language}, ${topic.topicType}): ${topic.title.substring(0, 40)}...`);
         }
       }
     } catch (error) {
@@ -471,46 +457,33 @@ async function createStaggeredRooms(
     }
   }
 
-  // Create SCHEDULED rooms (staggered into the future)
+  // Create SCHEDULED rooms using pickBalancedTopic
   for (let i = 0; i < scheduledNeeded; i++) {
     const category = categories[categoryIndex % categories.length];
-    categoryIndex++; // Move to next category for next room
-    
-    // Each room gets random language independently
-    const language = getRandomLanguage();
+    categoryIndex++;
     
     try {
-      const topics = await generateDebateTopics(regionId, category.id, 1);
+      const topic = await pickBalancedTopic(category.id, regionId);
       
-      if (topics.length > 0) {
-        let topic = topics[0];
+      if (topic) {
+        const illustrationUrl = await getIllustrationForTitle(topic.originalTitle || topic.title);
         
-        // Fetch illustration from English title BEFORE translation
-        const illustrationUrl = await getIllustrationForTitle(topic.title);
-        
-        // Translate to Hindi if room language is Hindi
-        if (language === 'Hindi') {
-          const translated = await translateTopicToHindi(topic);
-          topic = { ...topic, ...translated };
-        }
-        
-        // Stagger scheduled times: base offset per region + room index offset
-        // Region 0: in 3 min, Region 1: in 6 min, Region 2: in 9 min, etc.
         const minutesFromNow = regionOffset + 3 + (i * ROOM_INTERVAL_MINUTES);
         const scheduledAt = new Date(now.getTime() + minutesFromNow * 60 * 1000);
-        // Round to nearest minute for cleaner times
         scheduledAt.setSeconds(0, 0);
         
         await prisma.room.create({
           data: {
             title: topic.title,
+            originalTitle: topic.originalTitle,
             description: topic.description,
             regionId,
             categoryId: category.id,
             type: 'DEBATE',
+            topicType: topic.topicType, // Set topicType for tags
             sideALabel: topic.sideALabel,
             sideBLabel: topic.sideBLabel,
-            language,
+            language: topic.language,
             illustrationUrl,
             scheduledAt,
             status: 'SCHEDULED',
@@ -518,7 +491,7 @@ async function createStaggeredRooms(
           },
         });
 
-        console.log(`Created SCHEDULED room [${region.name}] (${language}): ${topic.title} (in ${minutesFromNow}m)`);
+        console.log(`Created SCHEDULED room [${region.name}] (${topic.language}, ${topic.topicType}): ${topic.title.substring(0, 40)}...`);
       }
     } catch (error) {
       console.error('Error creating scheduled room:', error);
