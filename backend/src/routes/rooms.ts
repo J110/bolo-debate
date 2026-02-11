@@ -973,6 +973,102 @@ export async function roomRoutes(app: FastifyInstance) {
     }
   });
 
+  // Real-time monitoring of topic distribution
+  app.get('/stats/monitor', async (request, reply) => {
+    try {
+      // Get all active rooms with full details
+      const activeRooms = await prisma.room.findMany({
+        where: { status: { in: ['LIVE', 'SCHEDULED'] } },
+        select: {
+          id: true,
+          title: true,
+          originalTitle: true,
+          status: true,
+          topicType: true,
+          language: true,
+          category: { select: { name: true } },
+          scheduledAt: true,
+        },
+        orderBy: [
+          { status: 'asc' },
+          { scheduledAt: 'asc' },
+        ],
+      });
+
+      // Count by topicType
+      const trendingRooms = activeRooms.filter(r => r.topicType === 'TRENDING');
+      const genericRooms = activeRooms.filter(r => r.topicType === 'GENERIC');
+      const internationalRooms = activeRooms.filter(r => r.topicType === 'INTERNATIONAL');
+      const unknownRooms = activeRooms.filter(r => !r.topicType);
+
+      // Count by language
+      const hindiRooms = activeRooms.filter(r => r.language === 'Hindi');
+      const englishRooms = activeRooms.filter(r => r.language === 'English');
+
+      // Count by status
+      const liveRooms = activeRooms.filter(r => r.status === 'LIVE');
+      const scheduledRooms = activeRooms.filter(r => r.status === 'SCHEDULED');
+
+      // Check TopicQueue for available topics
+      const queueStats = await prisma.topicQueue.groupBy({
+        by: ['topicType', 'isUsed'],
+        _count: true,
+      });
+
+      return reply.send({
+        success: true,
+        timestamp: new Date().toISOString(),
+        summary: {
+          total: activeRooms.length,
+          byType: {
+            trending: trendingRooms.length,
+            generic: genericRooms.length,
+            international: internationalRooms.length,
+            unknown: unknownRooms.length,
+          },
+          byLanguage: {
+            hindi: hindiRooms.length,
+            english: englishRooms.length,
+          },
+          byStatus: {
+            live: liveRooms.length,
+            scheduled: scheduledRooms.length,
+          },
+          ratios: {
+            trendingPercent: activeRooms.length > 0 
+              ? ((trendingRooms.length / activeRooms.length) * 100).toFixed(1) + '%'
+              : 'N/A',
+            genericPercent: activeRooms.length > 0 
+              ? (((genericRooms.length + internationalRooms.length) / activeRooms.length) * 100).toFixed(1) + '%'
+              : 'N/A',
+            hindiPercent: activeRooms.length > 0 
+              ? ((hindiRooms.length / activeRooms.length) * 100).toFixed(1) + '%'
+              : 'N/A',
+          },
+        },
+        topicQueue: queueStats.map(q => ({
+          type: q.topicType || 'UNKNOWN',
+          isUsed: q.isUsed,
+          count: q._count,
+        })),
+        rooms: activeRooms.map(r => ({
+          id: r.id,
+          title: r.title.substring(0, 50) + (r.title.length > 50 ? '...' : ''),
+          status: r.status,
+          type: r.topicType || 'UNKNOWN',
+          language: r.language,
+          category: r.category.name,
+        })),
+      });
+    } catch (error) {
+      console.error('Error in monitor endpoint:', error);
+      return reply.status(500).send({
+        success: false,
+        error: 'Failed to fetch monitoring data',
+      });
+    }
+  });
+
   // Get rooms grouped by category
   app.get('/by-category', async (request, reply) => {
     const { status } = request.query as { status?: string };
