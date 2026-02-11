@@ -62,6 +62,9 @@ const List<String> supportedLanguages = [
   'Kashmiri', 'Konkani', 'Manipuri', 'Nepali', 'Sanskrit', 'Urdu',
 ];
 
+// Topic type for ratio tracking (Local/Trending vs Generic/Evergreen)
+enum TopicType { trending, generic, international, unknown }
+
 class Room extends Equatable {
   final String id;
   final String title;
@@ -70,6 +73,7 @@ class Room extends Equatable {
   final Region region;
   final Category category;
   final RoomType type;
+  final TopicType topicType; // TRENDING (local) or GENERIC (evergreen)
   final String? sideALabel;
   final String? sideBLabel;
   final String language; // Discussion language
@@ -92,6 +96,7 @@ class Room extends Equatable {
     required this.region,
     required this.category,
     required this.type,
+    this.topicType = TopicType.unknown,
     this.sideALabel,
     this.sideBLabel,
     this.language = 'English',
@@ -116,6 +121,7 @@ class Room extends Equatable {
       region: Region.fromJson(json['region'] as Map<String, dynamic>),
       category: Category.fromJson(json['category'] as Map<String, dynamic>),
       type: json['type'] == 'DEBATE' ? RoomType.debate : RoomType.discussion,
+      topicType: _parseTopicType(json['topicType'] as String?),
       sideALabel: json['sideALabel'] as String?,
       sideBLabel: json['sideBLabel'] as String?,
       language: json['language'] as String? ?? 'English',
@@ -130,6 +136,19 @@ class Room extends Equatable {
       sideACount: json['sideACount'] as int? ?? 0,
       sideBCount: json['sideBCount'] as int? ?? 0,
     );
+  }
+
+  static TopicType _parseTopicType(String? topicType) {
+    switch (topicType) {
+      case 'TRENDING':
+        return TopicType.trending;
+      case 'GENERIC':
+        return TopicType.generic;
+      case 'INTERNATIONAL':
+        return TopicType.international;
+      default:
+        return TopicType.unknown;
+    }
   }
 
   static RoomStatus _parseStatus(String status) {
@@ -156,6 +175,11 @@ class Room extends Equatable {
     return remaining.isNegative ? Duration.zero : remaining;
   }
 
+  // Helper getters for topic type display
+  bool get isTrending => topicType == TopicType.trending;
+  bool get isGeneric => topicType == TopicType.generic || topicType == TopicType.international;
+  String get topicTypeLabel => isTrending ? 'Local' : (topicType == TopicType.unknown ? '' : 'Evergreen');
+
   @override
   List<Object?> get props => [
         id,
@@ -165,6 +189,7 @@ class Room extends Equatable {
         region,
         category,
         type,
+        topicType,
         sideALabel,
         sideBLabel,
         language,
