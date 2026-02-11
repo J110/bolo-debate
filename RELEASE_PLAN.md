@@ -8,12 +8,13 @@ A comprehensive guide for deploying Bolo Debate to production on Google Cloud Pl
 
 1. [Prerequisites](#prerequisites)
 2. [GCP Infrastructure Setup](#gcp-infrastructure-setup)
-3. [Backend Deployment on GCP](#backend-deployment-on-gcp)
-4. [Frontend Web Deployment](#frontend-web-deployment)
-5. [iOS App Store Publishing](#ios-app-store-publishing)
-6. [Android Play Store Publishing](#android-play-store-publishing)
-7. [Post-Launch Checklist](#post-launch-checklist)
-8. [Monitoring & Maintenance](#monitoring--maintenance)
+3. [LiveKit Self-Hosting on GCP](#livekit-self-hosting-on-gcp)
+4. [Backend Deployment on GCP](#backend-deployment-on-gcp)
+5. [Frontend Web Deployment](#frontend-web-deployment)
+6. [iOS App Store Publishing](#ios-app-store-publishing)
+7. [Android Play Store Publishing](#android-play-store-publishing)
+8. [Post-Launch Checklist](#post-launch-checklist)
+9. [Monitoring & Maintenance](#monitoring--maintenance)
 
 ---
 
@@ -23,11 +24,19 @@ A comprehensive guide for deploying Bolo Debate to production on Google Cloud Pl
 
 | Service | Purpose | Link |
 |---------|---------|------|
-| Google Cloud Platform | Backend hosting, database, storage | https://console.cloud.google.com |
+| Google Cloud Platform | Backend hosting, database, storage, LiveKit hosting | https://console.cloud.google.com |
 | Apple Developer Account | iOS App Store publishing ($99/year) | https://developer.apple.com |
 | Google Play Console | Android Play Store publishing ($25 one-time) | https://play.google.com/console |
-| LiveKit Cloud | Real-time audio (or self-host) | https://livekit.io |
 | Groq | AI topic generation (free tier) | https://console.groq.com |
+
+### LiveKit Options
+
+| Option | Best For | Cost |
+|--------|----------|------|
+| **LiveKit Cloud** (Development) | Testing, small scale | Free tier available, then $0.006/min/participant |
+| **Self-hosted on GCP** (Production) | Full control, cost efficiency at scale | ~$50-300/month depending on traffic |
+
+> **Recommendation:** Use LiveKit Cloud for development/testing, then migrate to self-hosted for production. See [LiveKit Self-Hosting](#livekit-self-hosting-on-gcp) section.
 
 ### Tools Required
 
@@ -149,6 +158,428 @@ echo -n "your-livekit-api-key" | gcloud secrets create LIVEKIT_API_KEY --data-fi
 echo -n "your-livekit-api-secret" | gcloud secrets create LIVEKIT_API_SECRET --data-file=-
 echo -n "your-groq-api-key" | gcloud secrets create GROQ_API_KEY --data-file=-
 ```
+
+---
+
+## LiveKit Self-Hosting on GCP
+
+For production, self-hosting LiveKit gives you more control, lower latency, and reduced costs at scale. This section covers deploying LiveKit on GCP.
+
+### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         Load Balancer                            │
+│                    (TCP/UDP ports 443, 7881)                     │
+└─────────────────────────────┬───────────────────────────────────┘
+                              │
+        ┌─────────────────────┼─────────────────────┐
+        │                     │                     │
+        ▼                     ▼                     ▼
+┌───────────────┐   ┌───────────────┐   ┌───────────────┐
+│  LiveKit VM 1 │   │  LiveKit VM 2 │   │  LiveKit VM 3 │
+│   (Primary)   │   │   (Replica)   │   │   (Replica)   │
+└───────────────┘   └───────────────┘   └───────────────┘
+        │                     │                     │
+        └─────────────────────┼─────────────────────┘
+                              │
+                              ▼
+                    ┌─────────────────┐
+                    │      Redis      │
+                    │  (Coordination) │
+                    └─────────────────┘
+```
+
+### Option A: Single VM Deployment (Simple, for <1000 concurrent users)
+
+#### Step 1: Create Compute Engine VM
+
+```bash
+# Create VM with required ports
+gcloud compute instances create livekit-server \
+  --zone=asia-south1-a \
+  --machine-type=e2-standard-2 \
+  --image-family=ubuntu-2204-lts \
+  --image-project=ubuntu-os-cloud \
+  --boot-disk-size=50GB \
+  --tags=livekit-server
+
+# Create firewall rules for LiveKit
+gcloud compute firewall-rules create livekit-webrtc \
+  --direction=INGRESS \
+  --priority=1000 \
+  --network=default \
+  --action=ALLOW \
+  --rules=tcp:7880,tcp:7881,udp:50000-60000 \
+  --source-ranges=0.0.0.0/0 \
+  --target-tags=livekit-server
+
+gcloud compute firewall-rules create livekit-turn \
+  --direction=INGRESS \
+  --priority=1000 \
+  --network=default \
+  --action=ALLOW \
+  --rules=tcp:443,udp:443,tcp:3478,udp:3478 \
+  --source-ranges=0.0.0.0/0 \
+  --target-tags=livekit-server
+```
+
+#### Step 2: Reserve Static IP
+
+```bash
+# Reserve external IP
+gcloud compute addresses create livekit-ip --region=asia-south1
+
+# Get the IP address
+gcloud compute addresses describe livekit-ip --region=asia-south1 --format='value(address)'
+# Save this IP - you'll need it for DNS
+
+# Attach to VM
+gcloud compute instances delete-access-config livekit-server \
+  --zone=asia-south1-a \
+  --access-config-name="external-nat"
+
+gcloud compute instances add-access-config livekit-server \
+  --zone=asia-south1-a \
+  --address=STATIC_IP_ADDRESS
+```
+
+#### Step 3: Set Up DNS
+
+Add DNS records for your domain (e.g., `livekit.bolodebate.com`):
+
+| Type | Name | Value | TTL |
+|------|------|-------|-----|
+| A | livekit | YOUR_STATIC_IP | 300 |
+| A | turn | YOUR_STATIC_IP | 300 |
+
+#### Step 4: SSH and Install LiveKit
+
+```bash
+# SSH into the VM
+gcloud compute ssh livekit-server --zone=asia-south1-a
+
+# Update system
+sudo apt update && sudo apt upgrade -y
+
+# Install Docker
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+sudo usermod -aG docker $USER
+newgrp docker
+
+# Install Docker Compose
+sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+
+# Create LiveKit directory
+mkdir -p ~/livekit && cd ~/livekit
+```
+
+#### Step 5: Generate LiveKit Keys
+
+```bash
+# Generate API key and secret
+docker run --rm livekit/generate generate-keys
+# Output:
+# API Key: APIxxxxxxxxxxxxxxx
+# API Secret: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# SAVE THESE - you'll need them for your backend!
+```
+
+#### Step 6: Create LiveKit Configuration
+
+Create `~/livekit/livekit.yaml`:
+
+```yaml
+# LiveKit Server Configuration
+port: 7880
+rtc:
+  port_range_start: 50000
+  port_range_end: 60000
+  use_external_ip: true
+  tcp_port: 7881
+
+# Enable TURN server for better connectivity
+turn:
+  enabled: true
+  domain: turn.bolodebate.com
+  tls_port: 5349
+  udp_port: 3478
+  external_tls: true
+
+# Redis for multi-node coordination (optional for single node)
+# redis:
+#   address: localhost:6379
+
+keys:
+  # Replace with your generated keys
+  APIxxxxxxxxxxxxxxx: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+logging:
+  level: info
+  json: true
+
+# Room settings
+room:
+  auto_create: true
+  empty_timeout: 300  # 5 minutes
+  max_participants: 100
+
+# Webhook for events (optional)
+# webhook:
+#   urls:
+#     - https://your-backend/api/livekit/webhook
+#   api_key: APIxxxxxxxxxxxxxxx
+```
+
+#### Step 7: Create Docker Compose File
+
+Create `~/livekit/docker-compose.yml`:
+
+```yaml
+version: '3.8'
+
+services:
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: livekit-server
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./livekit.yaml:/livekit.yaml
+    command: ["--config", "/livekit.yaml"]
+    environment:
+      - LIVEKIT_KEYS=APIxxxxxxxxxxxxxxx:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+  # Optional: Caddy for automatic HTTPS
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:
+```
+
+#### Step 8: Create Caddyfile for HTTPS
+
+Create `~/livekit/Caddyfile`:
+
+```
+livekit.bolodebate.com {
+    reverse_proxy localhost:7880
+}
+
+turn.bolodebate.com {
+    reverse_proxy localhost:5349
+}
+```
+
+#### Step 9: Start LiveKit
+
+```bash
+cd ~/livekit
+
+# Start services
+docker-compose up -d
+
+# Check logs
+docker-compose logs -f livekit
+
+# Verify it's running
+curl http://localhost:7880
+# Should return: "OK"
+```
+
+#### Step 10: Test LiveKit Connection
+
+```bash
+# Install livekit-cli
+curl -sSL https://get.livekit.io/cli | bash
+
+# Test connection
+livekit-cli create-token \
+  --api-key APIxxxxxxxxxxxxxxx \
+  --api-secret xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
+  --join --room test-room --identity test-user
+
+# Join the room using the generated token at:
+# https://meet.livekit.io/?liveKitUrl=wss://livekit.bolodebate.com
+```
+
+### Option B: Multi-Node Deployment with GKE (For Scale)
+
+For high availability and >1000 concurrent users, use Kubernetes:
+
+#### Step 1: Create GKE Cluster
+
+```bash
+# Create cluster with node auto-scaling
+gcloud container clusters create livekit-cluster \
+  --zone=asia-south1-a \
+  --num-nodes=3 \
+  --machine-type=e2-standard-4 \
+  --enable-autoscaling \
+  --min-nodes=2 \
+  --max-nodes=10
+
+# Get credentials
+gcloud container clusters get-credentials livekit-cluster --zone=asia-south1-a
+```
+
+#### Step 2: Install LiveKit Helm Chart
+
+```bash
+# Add LiveKit Helm repo
+helm repo add livekit https://helm.livekit.io
+helm repo update
+
+# Create namespace
+kubectl create namespace livekit
+
+# Create secret for keys
+kubectl create secret generic livekit-keys \
+  --namespace=livekit \
+  --from-literal=api-key=APIxxxxxxxxxxxxxxx \
+  --from-literal=api-secret=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+#### Step 3: Create Helm Values
+
+Create `livekit-values.yaml`:
+
+```yaml
+# LiveKit Helm Values
+replicaCount: 3
+
+livekit:
+  config:
+    port: 7880
+    rtc:
+      port_range_start: 50000
+      port_range_end: 60000
+      use_external_ip: true
+      tcp_port: 7881
+    turn:
+      enabled: true
+      domain: turn.bolodebate.com
+      tls_port: 5349
+    room:
+      auto_create: true
+      empty_timeout: 300
+    logging:
+      level: info
+
+  # External key reference
+  keys:
+    secretName: livekit-keys
+
+redis:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: false
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: livekit.bolodebate.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: livekit-tls
+      hosts:
+        - livekit.bolodebate.com
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 512Mi
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+```
+
+#### Step 4: Deploy with Helm
+
+```bash
+# Install LiveKit
+helm install livekit livekit/livekit-server \
+  --namespace livekit \
+  --values livekit-values.yaml
+
+# Check status
+kubectl get pods -n livekit
+kubectl get svc -n livekit
+```
+
+### Update Backend Configuration
+
+After setting up LiveKit, update your backend environment:
+
+```bash
+# Store LiveKit secrets in GCP Secret Manager
+echo -n "APIxxxxxxxxxxxxxxx" | gcloud secrets create LIVEKIT_API_KEY --data-file=-
+echo -n "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" | gcloud secrets create LIVEKIT_API_SECRET --data-file=-
+echo -n "wss://livekit.bolodebate.com" | gcloud secrets create LIVEKIT_URL --data-file=-
+```
+
+### LiveKit Cost Estimation
+
+| Deployment | Monthly Cost | Max Concurrent Users |
+|------------|--------------|---------------------|
+| Single VM (e2-standard-2) | ~$50 | ~500-1000 |
+| Multi-node GKE (3 nodes) | ~$200-300 | ~5000+ |
+| LiveKit Cloud | $0.006/min/participant | Unlimited |
+
+### LiveKit Monitoring
+
+Add monitoring with Prometheus:
+
+```bash
+# Install Prometheus stack in GKE
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm install prometheus prometheus-community/kube-prometheus-stack \
+  --namespace monitoring \
+  --create-namespace
+
+# LiveKit exposes metrics at /metrics endpoint
+# Configure ServiceMonitor for LiveKit
+```
+
+### Troubleshooting LiveKit
+
+| Issue | Solution |
+|-------|----------|
+| WebRTC connection fails | Check firewall rules for UDP 50000-60000 |
+| No audio | Ensure TURN server is configured for NAT traversal |
+| High latency | Deploy LiveKit closer to your users |
+| Connection drops | Check if TCP fallback (port 7881) is open |
+| SSL errors | Verify domain DNS and certificate |
 
 ---
 
@@ -734,15 +1165,40 @@ gcloud sql instances patch bolo-debate-db \
 
 ## Cost Estimation (GCP)
 
+### Basic Setup (Small Scale: <500 concurrent users)
+
 | Service | Estimated Monthly Cost |
 |---------|----------------------|
 | Cloud Run (1 instance, 512MB) | $15-30 |
 | Cloud SQL (db-f1-micro) | $10-15 |
 | Cloud Storage (10GB) | $1-2 |
 | Cloud CDN | $5-10 |
-| **Total** | **$31-57/month** |
+| LiveKit VM (e2-standard-2) | $50-60 |
+| **Total** | **$81-117/month** |
 
-*Costs can be higher with increased traffic. Use GCP Pricing Calculator for accurate estimates.*
+### Production Setup (Medium Scale: 500-5000 concurrent users)
+
+| Service | Estimated Monthly Cost |
+|---------|----------------------|
+| Cloud Run (auto-scaling, 2-10 instances) | $50-150 |
+| Cloud SQL (db-g1-small) | $25-50 |
+| Cloud Storage + CDN | $10-20 |
+| LiveKit GKE Cluster (3 nodes) | $200-300 |
+| Redis (Memorystore) | $30-50 |
+| **Total** | **$315-570/month** |
+
+### High Scale Setup (5000+ concurrent users)
+
+| Service | Estimated Monthly Cost |
+|---------|----------------------|
+| Cloud Run (auto-scaling) | $200-500 |
+| Cloud SQL (db-n1-standard-2) | $100-200 |
+| Cloud Storage + CDN | $50-100 |
+| LiveKit GKE Cluster (5-10 nodes) | $500-800 |
+| Redis Cluster | $100-150 |
+| **Total** | **$950-1750/month** |
+
+*Costs vary significantly based on traffic patterns. Use GCP Pricing Calculator for accurate estimates.*
 
 ---
 
@@ -753,6 +1209,8 @@ gcloud sql instances patch bolo-debate-db \
 - **App Store Guidelines:** https://developer.apple.com/app-store/review/guidelines/
 - **Google Play Policies:** https://play.google.com/console/about/guides/
 - **LiveKit Documentation:** https://docs.livekit.io
+- **LiveKit Self-Hosting Guide:** https://docs.livekit.io/deploy/
+- **LiveKit Helm Charts:** https://github.com/livekit/livekit-helm
 
 ---
 
