@@ -35,6 +35,111 @@ const joinRoomSchema = z.object({
   pledgeAccepted: z.boolean(),
 });
 
+// Helper function to fetch balanced/diverse rooms for homepage
+async function fetchBalancedRooms(limitNum: number) {
+  const roomInclude = {
+    host: {
+      select: { id: true, username: true, displayName: true, avatarUrl: true },
+    },
+    region: { select: { id: true, name: true, state: true } },
+    category: true,
+    _count: { select: { participants: true } },
+  };
+
+  // Calculate quotas for diversity
+  const trendingQuota = Math.ceil(limitNum * 0.5); // 50% trending/local
+  const genericQuota = Math.floor(limitNum * 0.5); // 50% generic/evergreen
+  const hindiQuota = Math.ceil(limitNum * 0.5); // 50% Hindi
+  const englishQuota = Math.floor(limitNum * 0.5); // 50% English
+
+  // Fetch different types of rooms
+  const [trendingRooms, genericRooms, internationalRooms] = await Promise.all([
+    // Trending/Local rooms (from various regions)
+    prisma.room.findMany({
+      where: {
+        status: { in: ['LIVE', 'SCHEDULED'] },
+        topicType: 'TRENDING',
+      },
+      include: roomInclude,
+      orderBy: [{ status: 'asc' }, { scheduledAt: 'asc' }],
+      take: trendingQuota + 5, // Get extra for filtering
+    }),
+    // Generic/Evergreen rooms
+    prisma.room.findMany({
+      where: {
+        status: { in: ['LIVE', 'SCHEDULED'] },
+        topicType: 'GENERIC',
+      },
+      include: roomInclude,
+      orderBy: [{ status: 'asc' }, { scheduledAt: 'asc' }],
+      take: genericQuota + 5,
+    }),
+    // International rooms
+    prisma.room.findMany({
+      where: {
+        status: { in: ['LIVE', 'SCHEDULED'] },
+        OR: [
+          { topicType: 'INTERNATIONAL' },
+          { region: { name: 'International' } },
+        ],
+      },
+      include: roomInclude,
+      orderBy: [{ status: 'asc' }, { scheduledAt: 'asc' }],
+      take: 3,
+    }),
+  ]);
+
+  // Combine and balance
+  const allRooms = new Map<string, any>();
+  const seenRegions = new Set<string>();
+  let hindiCount = 0;
+  let englishCount = 0;
+
+  // Helper to add room with balance checks
+  const addRoom = (room: any) => {
+    if (allRooms.has(room.id)) return false;
+    
+    // Check language balance
+    const isHindi = room.language === 'Hindi';
+    if (isHindi && hindiCount >= hindiQuota) return false;
+    if (!isHindi && englishCount >= englishQuota) return false;
+
+    allRooms.set(room.id, room);
+    if (isHindi) hindiCount++;
+    else englishCount++;
+    seenRegions.add(room.regionId);
+    return true;
+  };
+
+  // Add international rooms first (ensure at least 1-2)
+  for (const room of internationalRooms.slice(0, 2)) {
+    addRoom(room);
+  }
+
+  // Interleave trending and generic for diversity
+  let tIdx = 0, gIdx = 0;
+  while (allRooms.size < limitNum && (tIdx < trendingRooms.length || gIdx < genericRooms.length)) {
+    // Add trending
+    if (tIdx < trendingRooms.length && allRooms.size < limitNum) {
+      addRoom(trendingRooms[tIdx++]);
+    }
+    // Add generic
+    if (gIdx < genericRooms.length && allRooms.size < limitNum) {
+      addRoom(genericRooms[gIdx++]);
+    }
+  }
+
+  // Sort by status (LIVE first) then scheduledAt
+  const sortedRooms = Array.from(allRooms.values()).sort((a, b) => {
+    if (a.status !== b.status) {
+      return a.status === 'LIVE' ? -1 : 1;
+    }
+    return new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime();
+  });
+
+  return sortedRooms.slice(0, limitNum);
+}
+
 export async function roomRoutes(app: FastifyInstance) {
   // List rooms with filters
   app.get('/', { preHandler: optionalAuth }, async (request, reply) => {
@@ -45,6 +150,7 @@ export async function roomRoutes(app: FastifyInstance) {
       type,
       page = '1',
       limit = '20',
+      balanced = 'true', // Enable balanced fetching by default
     } = request.query as {
       regionId?: string;
       categoryId?: string;
@@ -52,11 +158,37 @@ export async function roomRoutes(app: FastifyInstance) {
       type?: string;
       page?: string;
       limit?: string;
+      balanced?: string;
     };
 
     const pageNum = parseInt(page, 10);
     const limitNum = Math.min(parseInt(limit, 10), 50);
 
+    // Use balanced fetching for homepage (no filters, first page)
+    const useBalanced = balanced === 'true' && !regionId && !categoryId && !status && !type && pageNum === 1;
+
+    if (useBalanced) {
+      const rooms = await fetchBalancedRooms(limitNum);
+      const total = await prisma.room.count({
+        where: { status: { in: ['LIVE', 'SCHEDULED'] } },
+      });
+
+      return reply.send({
+        success: true,
+        data: {
+          items: rooms.map(room => ({
+            ...room,
+            participantCount: room._count.participants,
+          })),
+          total,
+          page: pageNum,
+          pageSize: limitNum,
+          totalPages: Math.ceil(total / limitNum),
+        },
+      });
+    }
+
+    // Standard filtered query
     const where: any = {};
     if (regionId) where.regionId = regionId;
     if (categoryId) where.categoryId = categoryId;

@@ -871,13 +871,21 @@ Rules:
 3. Topics should feel CURRENT and connected to the original news
 4. Avoid topics that are too politically sensitive or divisive
 5. Skip headlines that don't make good debate topics (report as skipped)
+6. USE VARIED QUESTION FORMATS - mix these styles:
+   - "Should X happen?" / "Is X necessary?"
+   - "Is X good for Y?" / "Does X benefit Y?"
+   - "Will X lead to Y?" / "Can X solve Y?"
+   - "Are we ready for X?" / "Is it time for X?"
+   - Statement-style: "X is overrated" / "X deserves more attention"
+   - Comparison: "X vs Y: Which is better?"
+   DO NOT start every topic with "Should" - vary your question styles!
 
 Respond in JSON format:
 {
   "topics": [
     {
       "originalIndex": 1,
-      "title": "Should...",
+      "title": "Is urban development prioritizing...",
       "description": "...",
       "sideALabel": "...",
       "sideBLabel": "...",
