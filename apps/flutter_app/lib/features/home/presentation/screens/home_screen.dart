@@ -6,7 +6,6 @@ import 'package:bolo_debate/core/services/api_service.dart';
 import 'package:bolo_debate/features/home/presentation/providers/data_providers.dart';
 import 'package:bolo_debate/shared/widgets/room_card.dart';
 import 'package:bolo_debate/shared/widgets/category_chips.dart';
-import 'package:bolo_debate/shared/widgets/region_chips.dart';
 import 'package:bolo_debate/shared/widgets/hero_banner.dart';
 import 'package:bolo_debate/shared/widgets/live_indicator.dart';
 
@@ -15,12 +14,10 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selectedRegion = ref.watch(selectedRegionProvider);
     final selectedCategory = ref.watch(selectedCategoryProvider);
     
-    // Create filter params
+    // Create filter params (no region filter - regions are now tags, not filters)
     final filterParams = RoomFilterParams(
-      regionId: selectedRegion,
       categoryId: selectedCategory,
     );
     
@@ -146,27 +143,8 @@ class HomeScreen extends ConsumerWidget {
             ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.only(top: 8, bottom: 4),
-                child: CategoryChips(),
-              ),
-            ),
-            
-            // Region filter
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: Text(
-                  'Region',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
                 padding: const EdgeInsets.only(top: 8, bottom: 8),
-                child: RegionChips(),
+                child: CategoryChips(),
               ),
             ),
 
