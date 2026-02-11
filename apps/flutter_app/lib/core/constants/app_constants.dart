@@ -18,7 +18,7 @@ class AppConstants {
   // LiveKit URL - Set during build
   static const String livekitUrl = String.fromEnvironment(
     'LIVEKIT_URL',
-    defaultValue: 'ws://localhost:7880',
+    defaultValue: 'wss://bolo-debate-chldbsx4.livekit.cloud',
   );
 
   // Room
