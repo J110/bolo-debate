@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bolo_debate/core/theme/app_theme.dart';
+import 'package:bolo_debate/shared/widgets/page_header.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -10,11 +11,13 @@ class SettingsScreen extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Settings'),
-      ),
       body: ListView(
         children: [
+          // Header banner (replaces AppBar)
+          PageHeaders.settings(
+            onBack: () => Navigator.of(context).pop(),
+          ),
+
           _SectionHeader(title: 'Appearance'),
           ListTile(
             leading: const Icon(Icons.dark_mode),

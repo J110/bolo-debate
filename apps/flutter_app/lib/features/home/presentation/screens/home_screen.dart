@@ -8,6 +8,7 @@ import 'package:bolo_debate/shared/widgets/room_card.dart';
 import 'package:bolo_debate/shared/widgets/category_chips.dart';
 import 'package:bolo_debate/shared/widgets/region_chips.dart';
 import 'package:bolo_debate/shared/widgets/hero_banner.dart';
+import 'package:bolo_debate/shared/widgets/live_indicator.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -178,14 +179,7 @@ class HomeScreen extends ConsumerWidget {
                   children: [
                     Row(
                       children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: AppColors.error,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
+                        const PulsatingDot(size: 10),
                         const SizedBox(width: 8),
                         Text(
                           'Live Now',

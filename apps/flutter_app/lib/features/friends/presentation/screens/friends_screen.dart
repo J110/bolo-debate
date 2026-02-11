@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bolo_debate/core/services/api_service.dart';
 import 'package:bolo_debate/core/theme/app_theme.dart';
 import 'package:bolo_debate/shared/models/user_model.dart';
+import 'package:bolo_debate/shared/widgets/page_header.dart';
 
 // Friends provider
 final friendsProvider = FutureProvider<List<User>>((ref) async {
@@ -54,27 +55,41 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> with SingleTicker
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Friends'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person_add),
-            onPressed: () => _showAddFriendDialog(),
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'Friends'),
-            Tab(text: 'Requests'),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
+      body: Column(
         children: [
-          _FriendsTab(),
-          _RequestsTab(),
+          // Header banner (replaces AppBar)
+          PageHeaders.friends(
+            onBack: () => Navigator.of(context).pop(),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.person_add, color: Colors.white),
+                onPressed: () => _showAddFriendDialog(),
+              ),
+            ],
+          ),
+          
+          // Tab bar
+          Container(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            child: TabBar(
+              controller: _tabController,
+              tabs: const [
+                Tab(text: 'Friends'),
+                Tab(text: 'Requests'),
+              ],
+            ),
+          ),
+          
+          // Tab content
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _FriendsTab(),
+                _RequestsTab(),
+              ],
+            ),
+          ),
         ],
       ),
     );

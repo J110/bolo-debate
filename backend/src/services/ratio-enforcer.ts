@@ -127,6 +127,7 @@ export async function getNextTopicRequirements(): Promise<{
 
 /**
  * Pick a trending topic from the queue
+ * First tries the specified category, then falls back to ANY category
  */
 async function pickTrendingTopic(categoryId: string): Promise<{
   title: string;
@@ -135,8 +136,8 @@ async function pickTrendingTopic(categoryId: string): Promise<{
   sideBLabel: string;
   topicId: string;
 } | null> {
-  // Get all available trending topics for this category
-  const trendingTopics = await prisma.topicQueue.findMany({
+  // First try: Get trending topics for this specific category
+  let trendingTopics = await prisma.topicQueue.findMany({
     where: {
       categoryId,
       isUsed: false,
@@ -147,10 +148,28 @@ async function pickTrendingTopic(categoryId: string): Promise<{
       ]
     },
     orderBy: { trendingScore: 'desc' },
-    take: 20 // Get more to find a non-duplicate
+    take: 20
   });
   
-  console.log(`    📰 Found ${trendingTopics.length} trending topics in queue for category`);
+  console.log(`    📰 Found ${trendingTopics.length} trending topics for category`);
+  
+  // Second try: If no topics for this category, get from ANY category
+  if (trendingTopics.length === 0) {
+    console.log(`    🔄 No trending for category, trying ANY category...`);
+    trendingTopics = await prisma.topicQueue.findMany({
+      where: {
+        isUsed: false,
+        topicType: 'TRENDING',
+        OR: [
+          { expiresAt: null },
+          { expiresAt: { gt: new Date() } }
+        ]
+      },
+      orderBy: { trendingScore: 'desc' },
+      take: 20
+    });
+    console.log(`    📰 Found ${trendingTopics.length} trending topics from all categories`);
+  }
   
   for (const topic of trendingTopics) {
     // Check for duplicates/similar topics in active rooms

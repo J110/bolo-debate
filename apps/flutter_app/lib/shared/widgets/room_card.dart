@@ -3,6 +3,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bolo_debate/core/theme/app_theme.dart';
 import 'package:bolo_debate/shared/models/room_model.dart';
+import 'package:bolo_debate/shared/widgets/live_indicator.dart';
 
 // ============================================================================
 // TOPIC-BASED ILLUSTRATION SYSTEM
@@ -677,6 +678,15 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Use pulsating indicator for live rooms
+    if (status == RoomStatus.live) {
+      return const LiveIndicator(
+        fontSize: 10,
+        dotSize: 6,
+        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      );
+    }
+
     late Color bgColor;
     late Color textColor;
     late String label;
@@ -712,28 +722,13 @@ class _StatusBadge extends StatelessWidget {
           ),
         ],
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (status == RoomStatus.live)
-            Container(
-              width: 6,
-              height: 6,
-              margin: const EdgeInsets.only(right: 5),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-              ),
-            ),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              color: textColor,
-            ),
-          ),
-        ],
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: textColor,
+        ),
       ),
     );
   }

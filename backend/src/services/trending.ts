@@ -58,13 +58,13 @@ const NEWS_SOURCES: NewsSource[] = [
   { name: 'TOI Kolkata', rssUrl: 'https://timesofindia.indiatimes.com/rssfeeds/2950623.cms', region: 'Kolkata' },
 ];
 
-// Category keywords for classification
+// Category keywords for classification (expanded for better coverage)
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  Politics: ['election', 'government', 'minister', 'parliament', 'BJP', 'Congress', 'AAP', 'vote', 'policy', 'law', 'court', 'supreme', 'chief minister', 'PM', 'president', 'assembly', 'lok sabha', 'rajya sabha'],
-  Business: ['economy', 'market', 'stock', 'sensex', 'nifty', 'company', 'startup', 'investment', 'RBI', 'bank', 'finance', 'rupee', 'GDP', 'inflation', 'tax', 'budget', 'revenue', 'profit'],
-  Technology: ['AI', 'tech', 'software', 'app', 'digital', 'internet', 'cyber', 'startup', 'data', 'cloud', '5G', 'mobile', 'computer', 'IT', 'innovation', 'Google', 'Microsoft', 'Apple', 'Meta'],
-  Sports: ['cricket', 'IPL', 'match', 'player', 'team', 'score', 'win', 'football', 'hockey', 'Olympic', 'sport', 'BCCI', 'tournament', 'championship', 'league', 'captain', 'coach'],
-  Entertainment: ['movie', 'film', 'Bollywood', 'actor', 'actress', 'cinema', 'OTT', 'Netflix', 'music', 'concert', 'celebrity', 'star', 'director', 'song', 'album', 'award', 'show', 'series'],
+  Politics: ['election', 'government', 'minister', 'parliament', 'BJP', 'Congress', 'AAP', 'vote', 'policy', 'law', 'court', 'supreme', 'chief minister', 'PM', 'president', 'assembly', 'lok sabha', 'rajya sabha', 'modi', 'rahul', 'political', 'cabinet', 'governor', 'opposition', 'ruling'],
+  Business: ['economy', 'market', 'stock', 'sensex', 'nifty', 'company', 'startup', 'investment', 'RBI', 'bank', 'finance', 'rupee', 'GDP', 'inflation', 'tax', 'budget', 'revenue', 'profit', 'trade', 'export', 'import', 'retail', 'sales', 'growth', 'industry', 'manufacturing', 'employment', 'jobs', 'layoff', 'salary', 'wealth', 'billionaire', 'tata', 'ambani', 'adani', 'reliance', 'infosys', 'wipro', 'ipo', 'merger', 'acquisition', 'business'],
+  Technology: ['AI', 'tech', 'software', 'app', 'digital', 'internet', 'cyber', 'data', 'cloud', '5G', 'mobile', 'computer', 'IT', 'innovation', 'Google', 'Microsoft', 'Apple', 'Meta', 'ChatGPT', 'robot', 'automation', 'machine learning', 'artificial intelligence', 'smartphone', 'gadget', 'electric vehicle', 'EV', 'Tesla', 'SpaceX', 'ISRO', 'space', 'satellite', 'semiconductor', 'chip', 'processor', 'gaming', 'video game', 'social media', 'Instagram', 'Twitter', 'WhatsApp', 'YouTube', 'algorithm', 'hack', 'virus', 'privacy'],
+  Sports: ['cricket', 'IPL', 'match', 'player', 'team', 'score', 'win', 'football', 'hockey', 'Olympic', 'sport', 'BCCI', 'tournament', 'championship', 'league', 'captain', 'coach', 'goal', 'runs', 'wicket', 'batsman', 'bowler', 'FIFA', 'tennis', 'badminton', 'kabaddi', 'wrestling', 'boxing', 'athletics', 'marathon', 'medal', 'trophy', 'virat', 'kohli', 'rohit', 'dhoni', 'sachin', 'final', 'semi-final', 'qualifier', 'ISL', 'pro league', 'world cup'],
+  Entertainment: ['movie', 'film', 'Bollywood', 'actor', 'actress', 'cinema', 'OTT', 'Netflix', 'music', 'concert', 'celebrity', 'star', 'director', 'song', 'album', 'award', 'show', 'series', 'Hollywood', 'Tollywood', 'release', 'trailer', 'box office', 'streaming', 'Amazon Prime', 'Hotstar', 'web series', 'drama', 'comedy', 'thriller', 'romance', 'Oscars', 'Filmfare', 'IIFA', 'salman', 'shahrukh', 'aamir', 'deepika', 'alia', 'ranveer', 'ranbir', 'SRK', 'priyanka', 'katrina', 'wedding', 'party', 'fashion', 'viral', 'influencer', 'instagram'],
 };
 
 interface TrendingItemData {

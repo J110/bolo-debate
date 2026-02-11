@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bolo_debate/core/constants/app_constants.dart';
 import 'package:bolo_debate/core/theme/app_theme.dart';
 import 'package:bolo_debate/core/services/livekit_service.dart';
@@ -13,6 +14,7 @@ import 'package:bolo_debate/features/auth/presentation/providers/auth_provider.d
 import 'package:bolo_debate/features/room/presentation/providers/room_provider.dart';
 import 'package:bolo_debate/shared/models/room_model.dart';
 import 'package:bolo_debate/shared/widgets/orbital_visualizer.dart';
+import 'package:bolo_debate/shared/widgets/live_indicator.dart';
 
 class RoomScreen extends ConsumerStatefulWidget {
   final String roomId;
@@ -175,8 +177,12 @@ $shareUrl''';
                       ? const Center(child: Text('Room not found', style: TextStyle(color: Colors.white)))
                       : Column(
                           children: [
-                            // Header
+                            // Header banner with room illustration
                             _buildHeader(roomState.room!),
+                            
+                            // Sides indicator for debates
+                            _buildSidesIndicator(roomState.room!),
+                            const SizedBox(height: 8),
                             
                             // Orbital Audio Visualizer - prominent, meditative design
                             Center(
@@ -251,230 +257,269 @@ $shareUrl''';
     final currentUser = ref.watch(currentUserProvider);
     final isHost = room.host?.id == currentUser?.id;
     final canClaimHost = room.isAiHosted && room.host == null;
+    final categoryColor = Color(int.parse(room.category.color.replaceFirst('#', '0xFF')));
+    
+    // Use room's illustration or fallback to category-based image
+    final imageUrl = room.illustrationUrl ?? 
+        'https://picsum.photos/seed/${room.category.name.toLowerCase()}1/600/300';
     
     return Container(
-      padding: const EdgeInsets.all(12),
-      child: Column(
+      height: 160,
+      margin: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.error.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        fit: StackFit.expand,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.close, color: Colors.white),
-                onPressed: _showLeaveDialog,
-              ),
-              Expanded(
-                child: Column(
-                  children: [
-                    // Room title - allow multiple lines
-                    Text(
-                      room.title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppColors.error.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 6,
-                                height: 6,
-                                decoration: const BoxDecoration(
-                                  color: AppColors.error,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              const Text(
-                                'LIVE',
-                                style: TextStyle(
-                                  color: AppColors.error,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (timeRemaining != null) ...[
-                          const SizedBox(width: 8),
-                          Text(
-                            '${timeRemaining.inMinutes}:${(timeRemaining.inSeconds % 60).toString().padLeft(2, '0')}',
-                            style: TextStyle(
-                              color: timeRemaining.inMinutes < 5 ? AppColors.warning : Colors.grey,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                        // Host indicator (for current user)
-                        if (isHost) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: AppColors.primary.withOpacity(0.5)),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.star, color: AppColors.primary, size: 12),
-                                SizedBox(width: 4),
-                                Text(
-                                  'YOU',
-                                  style: TextStyle(
-                                    color: AppColors.primary,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    // Show host info (visible to everyone)
-                    const SizedBox(height: 4),
-                    if (room.host != null)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.star,
-                            color: Colors.amber.withOpacity(0.8),
-                            size: 14,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Hosted by ${room.host!.displayName}',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.7),
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      )
-                    else if (room.isAiHosted)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.smart_toy,
-                            color: Colors.cyan.withOpacity(0.8),
-                            size: 14,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'AI Hosted • Claim to become host',
-                            style: TextStyle(
-                              color: Colors.cyan.withOpacity(0.7),
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ),
-                  ],
-                ),
-              ),
-              // Claim Host button (visible if AI-hosted and no host)
-              if (canClaimHost)
-                TextButton.icon(
-                  onPressed: () {
-                    ref.read(liveRoomProvider(widget.roomId).notifier).claimHost();
-                  },
-                  icon: const Icon(Icons.person_add, color: AppColors.warning, size: 18),
-                  label: const Text('Claim Host', style: TextStyle(color: AppColors.warning, fontSize: 12)),
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    backgroundColor: AppColors.warning.withOpacity(0.1),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                ),
-              // Always show menu button
-              IconButton(
-                icon: const Icon(Icons.more_vert, color: Colors.white),
-                onPressed: () => _showOptionsMenu(room),
-              ),
-            ],
+          // Background image with artistic filter
+          ColorFiltered(
+            colorFilter: const ColorFilter.matrix(<double>[
+              1.5, -0.3, -0.3, 0, -40,
+              -0.3, 1.5, -0.3, 0, -40,
+              -0.3, -0.3, 1.5, 0, -40,
+              0, 0, 0, 1, 0,
+            ]),
+            child: CachedNetworkImage(
+              imageUrl: imageUrl,
+              fit: BoxFit.cover,
+              placeholder: (context, url) => Container(color: AppColors.error.withOpacity(0.3)),
+              errorWidget: (context, url, error) => Container(color: AppColors.error.withOpacity(0.3)),
+            ),
           ),
           
-          // Sides indicator for debates
-          if (room.isDebate && room.sideALabel != null && room.sideBLabel != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-                      decoration: BoxDecoration(
-                        color: AppColors.sideA.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        room.sideALabel!,
-                        style: const TextStyle(
-                          color: AppColors.sideA,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11,
-                        ),
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 6),
-                    child: Text(
-                      'VS',
-                      style: TextStyle(
-                        color: Colors.white54,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 10,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-                      decoration: BoxDecoration(
-                        color: AppColors.sideB.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        room.sideBLabel!,
-                        style: const TextStyle(
-                          color: AppColors.sideB,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11,
-                        ),
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
+          // Color overlay - red tint for live rooms
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.error.withOpacity(0.7),
+                  categoryColor.withOpacity(0.6),
                 ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              backgroundBlendMode: BlendMode.color,
+            ),
+          ),
+          
+          // Dark gradient for text readability
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.black.withOpacity(0.2),
+                  Colors.black.withOpacity(0.6),
+                ],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
               ),
             ),
+          ),
+          
+          // Content
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              children: [
+                // Top row with close button, claim host, and menu
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: _showLeaveDialog,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                    const Spacer(),
+                    // Claim Host button (visible if AI-hosted and no host)
+                    if (canClaimHost)
+                      TextButton.icon(
+                        onPressed: () {
+                          ref.read(liveRoomProvider(widget.roomId).notifier).claimHost();
+                        },
+                        icon: const Icon(Icons.person_add, color: AppColors.warning, size: 16),
+                        label: const Text('Claim Host', style: TextStyle(color: AppColors.warning, fontSize: 11)),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          backgroundColor: AppColors.warning.withOpacity(0.2),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                    IconButton(
+                      icon: const Icon(Icons.more_vert, color: Colors.white),
+                      onPressed: () => _showOptionsMenu(room),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+                
+                const Spacer(),
+                
+                // Title
+                Text(
+                  room.title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    shadows: [Shadow(color: Colors.black45, blurRadius: 6)],
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                
+                // LIVE badge, time, host info
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const LiveIndicator(
+                      fontSize: 10,
+                      dotSize: 6,
+                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    ),
+                    if (timeRemaining != null) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        '${timeRemaining.inMinutes}:${(timeRemaining.inSeconds % 60).toString().padLeft(2, '0')}',
+                        style: TextStyle(
+                          color: timeRemaining.inMinutes < 5 ? AppColors.warning : Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          shadows: const [Shadow(color: Colors.black45, blurRadius: 4)],
+                        ),
+                      ),
+                    ],
+                    if (isHost) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.star, color: Colors.amber, size: 12),
+                            SizedBox(width: 3),
+                            Text('HOST', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                
+                // Host/AI info
+                if (room.host != null && !isHost) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Hosted by ${room.host!.displayName}',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontSize: 10,
+                      shadows: const [Shadow(color: Colors.black45, blurRadius: 4)],
+                    ),
+                  ),
+                ] else if (room.isAiHosted && room.host == null) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.smart_toy, color: Colors.cyan.withOpacity(0.9), size: 12),
+                      const SizedBox(width: 4),
+                      Text(
+                        'AI Hosted • Claim to become host',
+                        style: TextStyle(
+                          color: Colors.cyan.withOpacity(0.9),
+                          fontSize: 10,
+                          shadows: const [Shadow(color: Colors.black45, blurRadius: 4)],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildSidesIndicator(Room room) {
+    if (!room.isDebate || room.sideALabel == null || room.sideBLabel == null) {
+      return const SizedBox.shrink();
+    }
+    
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+              decoration: BoxDecoration(
+                color: AppColors.sideA.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                room.sideALabel!,
+                style: const TextStyle(
+                  color: AppColors.sideA,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 6),
+            child: Text(
+              'VS',
+              style: TextStyle(
+                color: Colors.white54,
+                fontWeight: FontWeight.bold,
+                fontSize: 10,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+              decoration: BoxDecoration(
+                color: AppColors.sideB.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                room.sideBLabel!,
+                style: const TextStyle(
+                  color: AppColors.sideB,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
         ],
       ),
     );

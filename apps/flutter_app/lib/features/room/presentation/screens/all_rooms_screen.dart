@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:bolo_debate/core/theme/app_theme.dart';
 import 'package:bolo_debate/features/home/presentation/providers/data_providers.dart';
 import 'package:bolo_debate/shared/widgets/room_card.dart';
+import 'package:bolo_debate/shared/widgets/page_header.dart';
+import 'package:bolo_debate/shared/widgets/live_indicator.dart';
 
 class AllRoomsScreen extends ConsumerWidget {
   const AllRoomsScreen({super.key});
@@ -17,98 +19,108 @@ class AllRoomsScreen extends ConsumerWidget {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('All Rooms'),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => context.pop(),
-          ),
-          bottom: TabBar(
-            labelColor: AppColors.primary,
-            unselectedLabelColor: Colors.grey,
-            indicatorColor: AppColors.primary,
-            tabs: const [
-              Tab(
-                icon: Icon(Icons.circle, size: 8, color: AppColors.error),
-                text: 'Live Now',
-              ),
-              Tab(
-                icon: Icon(Icons.schedule, size: 16),
-                text: 'Upcoming',
-              ),
-            ],
-          ),
-        ),
-        body: TabBarView(
+        body: Column(
           children: [
-            // Live Rooms Tab
-            RefreshIndicator(
-              onRefresh: () async {
-                ref.invalidate(liveRoomsProvider(filterParams));
-              },
-              child: liveRoomsAsync.when(
-                data: (rooms) {
-                  if (rooms.isEmpty) {
-                    return _EmptyState(
-                      icon: Icons.mic_off,
-                      title: 'No live rooms',
-                      subtitle: 'Check back soon or start your own debate!',
-                    );
-                  }
-                  return ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: rooms.length,
-                    itemBuilder: (context, index) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: RoomCard(
-                          room: rooms[index],
-                          onTap: () => context.push('/room/${rooms[index].id}/detail'),
-                        ),
-                      );
-                    },
-                  );
-                },
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => _ErrorState(
-                  message: e.toString(),
-                  onRetry: () => ref.invalidate(liveRoomsProvider(filterParams)),
-                ),
+            // Header banner (replaces AppBar)
+            PageHeaders.allRooms(
+              onBack: () => context.pop(),
+            ),
+            
+            // Tab bar
+            Container(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              child: TabBar(
+                labelColor: AppColors.primary,
+                unselectedLabelColor: Colors.grey,
+                indicatorColor: AppColors.primary,
+                tabs: [
+                  Tab(
+                    icon: const PulsatingDot(size: 8),
+                    text: 'Live Now',
+                  ),
+                  const Tab(
+                    icon: Icon(Icons.schedule, size: 16),
+                    text: 'Upcoming',
+                  ),
+                ],
               ),
             ),
-            // Scheduled Rooms Tab
-            RefreshIndicator(
-              onRefresh: () async {
-                ref.invalidate(scheduledRoomsProvider(filterParams));
-              },
-              child: scheduledRoomsAsync.when(
-                data: (rooms) {
-                  if (rooms.isEmpty) {
-                    return _EmptyState(
-                      icon: Icons.event_busy,
-                      title: 'No upcoming rooms',
-                      subtitle: 'Be the first to schedule a debate!',
-                    );
-                  }
-                  return ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: rooms.length,
-                    itemBuilder: (context, index) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: RoomCard(
-                          room: rooms[index],
-                          onTap: () => context.push('/room/${rooms[index].id}/detail'),
-                        ),
-                      );
+            
+            // Tab content
+            Expanded(
+              child: TabBarView(
+                children: [
+                  // Live Rooms Tab
+                  RefreshIndicator(
+                    onRefresh: () async {
+                      ref.invalidate(liveRoomsProvider(filterParams));
                     },
-                  );
-                },
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => _ErrorState(
-                  message: e.toString(),
-                  onRetry: () => ref.invalidate(scheduledRoomsProvider(filterParams)),
-                ),
+                    child: liveRoomsAsync.when(
+                      data: (rooms) {
+                        if (rooms.isEmpty) {
+                          return _EmptyState(
+                            icon: Icons.mic_off,
+                            title: 'No live rooms',
+                            subtitle: 'Check back soon or start your own debate!',
+                          );
+                        }
+                        return ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: rooms.length,
+                          itemBuilder: (context, index) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: RoomCard(
+                                room: rooms[index],
+                                onTap: () => context.push('/room/${rooms[index].id}/detail'),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                      loading: () => const Center(child: CircularProgressIndicator()),
+                      error: (e, _) => _ErrorState(
+                        message: e.toString(),
+                        onRetry: () => ref.invalidate(liveRoomsProvider(filterParams)),
+                      ),
+                    ),
+                  ),
+                  // Scheduled Rooms Tab
+                  RefreshIndicator(
+                    onRefresh: () async {
+                      ref.invalidate(scheduledRoomsProvider(filterParams));
+                    },
+                    child: scheduledRoomsAsync.when(
+                      data: (rooms) {
+                        if (rooms.isEmpty) {
+                          return _EmptyState(
+                            icon: Icons.event_busy,
+                            title: 'No upcoming rooms',
+                            subtitle: 'Be the first to schedule a debate!',
+                          );
+                        }
+                        return ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: rooms.length,
+                          itemBuilder: (context, index) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: RoomCard(
+                                room: rooms[index],
+                                onTap: () => context.push('/room/${rooms[index].id}/detail'),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                      loading: () => const Center(child: CircularProgressIndicator()),
+                      error: (e, _) => _ErrorState(
+                        message: e.toString(),
+                        onRetry: () => ref.invalidate(scheduledRoomsProvider(filterParams)),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
