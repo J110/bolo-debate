@@ -219,6 +219,23 @@ async function sendBotSuggestions(): Promise<void> {
     },
   });
 
+  // Ensure bot user exists once per job run
+  let botUser = await prisma.user.findUnique({ where: { username: 'bolo_bot' } });
+  if (!botUser) {
+    botUser = await prisma.user.create({
+      data: {
+        username: 'bolo_bot',
+        displayName: 'Bolaa Bot',
+        avatarUrl: null,
+      },
+    });
+    console.log(`Created bot user with id ${botUser.id}`);
+  }
+  const botUserId = String(botUser.id);
+  if (!/^[0-9a-fA-F\\-]{36}$/.test(botUserId)) {
+    console.warn('Bot user id is not a valid UUID:', botUserId);
+  }
+
   for (const room of liveRooms) {
     // Only send suggestions to debate rooms
     if (room.type !== 'DEBATE' || !room.sideALabel || !room.sideBLabel) {
@@ -226,19 +243,6 @@ async function sendBotSuggestions(): Promise<void> {
     }
 
     try {
-      // Ensure bot user exists and get its UUID (prisma expects real UUIDs)
-      let botUser = await prisma.user.findUnique({ where: { username: 'bolo_bot' } });
-      if (!botUser) {
-        botUser = await prisma.user.create({
-          data: {
-            username: 'bolo_bot',
-            displayName: 'Bolaa Bot',
-            avatarUrl: null,
-          },
-        });
-        console.log(`Created bot user with id ${botUser.id}`);
-      }
-      const botUserId = botUser.id;
       const suggestion = await generateBotMessage(
         room.id,
         room.title,
