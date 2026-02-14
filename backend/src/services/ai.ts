@@ -499,7 +499,7 @@ Respond in JSON format: { "topics": [...] }`;
 
   let response: any = null;
   try {
-    response = await client.chat.completions.create(payload);
+    response = await client.chat.completions.create(payload as any);
   } catch (err: any) {
     const isRate = err && (err.status === 429 || err.code === 'rate_limit_exceeded');
     if (isRate) {
@@ -508,7 +508,7 @@ Respond in JSON format: { "topics": [...] }`;
       console.warn(`LLM rate-limited. Waiting ${retryAfter}s before retry...`);
       await sleep((retryAfter + 2) * 1000);
       // retry once
-      response = await client.chat.completions.create(payload);
+      response = await client.chat.completions.create(payload as any);
     } else {
       throw err;
     }
