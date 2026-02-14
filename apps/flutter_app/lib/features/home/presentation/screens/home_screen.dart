@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bolo_debate/core/theme/app_theme.dart';
 import 'package:bolo_debate/core/services/api_service.dart';
+import 'package:bolo_debate/core/constants/app_constants.dart';
+import 'package:bolo_debate/core/services/storage_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:bolo_debate/features/home/presentation/providers/data_providers.dart';
 import 'package:bolo_debate/shared/widgets/room_card.dart';
 import 'package:bolo_debate/shared/widgets/category_chips.dart';
@@ -27,13 +30,15 @@ class HomeScreen extends ConsumerWidget {
     final scheduledRoomsAsync = ref.watch(scheduledRoomsProvider(filterParams));
 
     return Scaffold(
-      body: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(liveRoomsProvider(filterParams));
-          ref.invalidate(scheduledRoomsProvider(filterParams));
-        },
-        child: CustomScrollView(
-          slivers: [
+      body: Stack(
+        children: [
+          RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(liveRoomsProvider(filterParams));
+              ref.invalidate(scheduledRoomsProvider(filterParams));
+            },
+            child: CustomScrollView(
+              slivers: [
             // Server waking up indicator
             Consumer(
               builder: (context, ref, child) {
@@ -290,7 +295,40 @@ class HomeScreen extends ConsumerWidget {
               child: SizedBox(height: 100),
             ),
           ],
-        ),
+            ),
+          ),
+          if (kDebugMode)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: FutureBuilder<String?>(
+                future: ref.read(storageServiceProvider).getToken(),
+                builder: (context, snapshot) {
+                  final tokenPresent = (snapshot.data ?? '').isNotEmpty;
+                  final liveCount = liveRoomsAsync.maybeWhen(data: (r) => r.length, orElse: () => null);
+                  final schedCount = scheduledRoomsAsync.maybeWhen(data: (r) => r.length, orElse: () => null);
+                  return Card(
+                    color: Colors.white.withOpacity(0.9),
+                    elevation: 6,
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('API: ${AppConstants.apiBaseUrl}', style: const TextStyle(fontSize: 10)),
+                          const SizedBox(height: 4),
+                          Text('Token: ${tokenPresent ? "yes" : "no"}', style: const TextStyle(fontSize: 10)),
+                          const SizedBox(height: 4),
+                          Text('Live: ${liveCount ?? '-'}  Scheduled: ${schedCount ?? '-'}', style: const TextStyle(fontSize: 10)),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+        ],
       ),
     );
   }
