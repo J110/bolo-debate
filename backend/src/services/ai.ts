@@ -25,6 +25,9 @@ let lastBatchGenerationTime = 0;
 const BATCH_GENERATION_INTERVAL = 60 * 60 * 1000; // 1 hour minimum between batch generations
 const MIN_TOPICS_PER_CATEGORY = 5; // Minimum cached topics before regenerating
 
+// small helper
+const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
+
 // Log available providers
 if (hasGroq) {
   console.log('✅ Groq API configured (FREE) - primary AI provider');
@@ -476,7 +479,8 @@ For each topic, provide:
 
 Respond in JSON format: { "topics": [...] }`;
 
-  const response = await client.chat.completions.create({
+  // Try with one retry on rate-limit (429) using retry-after header
+  const payload = {
     model,
     messages: [
       {
@@ -491,9 +495,26 @@ Respond in JSON format: { "topics": [...] }`;
     response_format: { type: 'json_object' },
     temperature: 0.8,
     max_tokens: 2000,
-  });
+  };
 
-  const content = response.choices[0]?.message?.content;
+  let response: any = null;
+  try {
+    response = await client.chat.completions.create(payload);
+  } catch (err: any) {
+    const isRate = err && (err.status === 429 || err.code === 'rate_limit_exceeded');
+    if (isRate) {
+      const retryAfterRaw = err?.headers?.['retry-after'] || err?.headers?.['Retry-After'] || '60';
+      const retryAfter = Math.max(5, parseInt(String(retryAfterRaw), 10) || 60);
+      console.warn(`LLM rate-limited. Waiting ${retryAfter}s before retry...`);
+      await sleep((retryAfter + 2) * 1000);
+      // retry once
+      response = await client.chat.completions.create(payload);
+    } else {
+      throw err;
+    }
+  }
+
+  const content = response.choices?.[0]?.message?.content;
   if (!content) {
     throw new Error('No response from LLM');
   }
