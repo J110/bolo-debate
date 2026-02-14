@@ -1,0 +1,25 @@
+port: 7880
+rtc:
+  port_range_start: 50000
+  port_range_end: 60000
+  use_external_ip: true
+  tcp_port: 7881
+
+turn:
+  enabled: true
+  domain: bolo-livekit-prod.vervetogether.com
+  tls_port: 5349
+  udp_port: 3478
+  external_tls: true
+
+keys:
+  APIa13dce8f10326051: HByV6jWJb7Yw6LSUge7lLmW0OINVWDV/COcZeQ7gGmbBTq9H
+
+room:
+  auto_create: true
+  empty_timeout: 300
+  max_participants: 100
+
+logging:
+  level: info
+  json: true

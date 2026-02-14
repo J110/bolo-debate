@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: livekit-server
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./livekit.yaml:/livekit.yaml
+    command: ["--config", "/livekit.yaml"]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
