@@ -226,6 +226,19 @@ async function sendBotSuggestions(): Promise<void> {
     }
 
     try {
+      // Ensure bot user exists and get its UUID (prisma expects real UUIDs)
+      let botUser = await prisma.user.findUnique({ where: { username: 'bolo_bot' } });
+      if (!botUser) {
+        botUser = await prisma.user.create({
+          data: {
+            username: 'bolo_bot',
+            displayName: 'Bolaa Bot',
+            avatarUrl: null,
+          },
+        });
+        console.log(`Created bot user with id ${botUser.id}`);
+      }
+      const botUserId = botUser.id;
       const suggestion = await generateBotMessage(
         room.id,
         room.title,
@@ -234,11 +247,11 @@ async function sendBotSuggestions(): Promise<void> {
       );
 
       if (suggestion) {
-        // Save bot message to database
+        // Save bot message to database (use real bot UUID)
         const message = await prisma.message.create({
           data: {
             roomId: room.id,
-            userId: 'bot', // Special bot user ID
+            userId: botUserId,
             content: suggestion,
             isBot: true,
           },

@@ -46,7 +46,7 @@ class AppConstants {
 class AppStrings {
   AppStrings._();
 
-  static const String appName = 'Bolo Debate';
+  static const String appName = 'Bolaa';
   static const String tagline = 'Voice your opinion';
 
   // Pledge
