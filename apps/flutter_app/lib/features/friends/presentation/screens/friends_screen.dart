@@ -23,7 +23,12 @@ final friendRequestsProvider = FutureProvider<Map<String, List<dynamic>>>((ref) 
   final response = await api.getFriendRequests();
   
   if (response['success'] == true) {
-    return response['data'] as Map<String, List<dynamic>>;
+    final data = response['data'];
+    if (data is Map<String, dynamic>) {
+      final incoming = List<dynamic>.from(data['incoming'] ?? []);
+      final outgoing = List<dynamic>.from(data['outgoing'] ?? []);
+      return {'incoming': incoming, 'outgoing': outgoing};
+    }
   }
   return {'incoming': [], 'outgoing': []};
 });
