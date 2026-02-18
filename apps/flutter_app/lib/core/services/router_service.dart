@@ -13,6 +13,7 @@ import 'package:bolo_debate/features/room/presentation/screens/room_detail_scree
 import 'package:bolo_debate/features/room/presentation/screens/all_rooms_screen.dart';
 import 'package:bolo_debate/features/profile/presentation/screens/profile_screen.dart';
 import 'package:bolo_debate/features/profile/presentation/screens/settings_screen.dart';
+import 'package:bolo_debate/features/profile/presentation/screens/edit_profile_screen.dart';
 import 'package:bolo_debate/features/friends/presentation/screens/friends_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -123,6 +124,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/settings',
         name: 'settings',
         builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: '/profile/edit',
+        name: 'editProfile',
+        builder: (context, state) => const EditProfileScreen(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

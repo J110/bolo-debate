@@ -73,9 +73,7 @@ class ProfileScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 16),
                         OutlinedButton.icon(
-                          onPressed: () {
-                            // TODO: Edit profile
-                          },
+                          onPressed: () => context.push('/profile/edit'),
                           icon: const Icon(Icons.edit, size: 16),
                           label: const Text('Edit Profile'),
                         ),

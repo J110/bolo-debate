@@ -123,6 +123,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = const AuthState();
   }
 
+  Future<void> refreshUser() async {
+    try {
+      final response = await _api.getMe();
+      if (response['success'] == true) {
+        final userJson = response['data'] as Map<String, dynamic>;
+        final user = User.fromJson(userJson);
+        await _storage.saveUserData(userJson);
+        state = state.copyWith(user: user, isLoading: false, error: null);
+      }
+    } catch (_) {
+      // ignore refresh errors; keep existing state
+    }
+  }
+
   void clearError() {
     state = state.copyWith(error: null);
   }
