@@ -37,6 +37,13 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
   bool _isLiveKitConnected = false;
   double _currentAudioLevel = 0.0;
   List<double> _frequencyBands = List.filled(20, 0.0);
+  // Measured height of the bottom controls so the input overlay can sit above it.
+  final GlobalKey _bottomControlsKey = GlobalKey();
+  double _bottomControlsHeight = 72.0;
+  // Estimated height of the input overlay (used for list padding).
+  final double _inputOverlayHeight = 48.0;
+  // Keys for message widgets so we can ensureVisible the newly-added message
+  final Map<String, GlobalKey> _messageKeys = {};
   
   ParticipantSide _getSelectedSide() {
     switch (widget.selectedSide) {
@@ -160,6 +167,28 @@ $shareUrl''';
   Widget build(BuildContext context) {
     final roomState = ref.watch(liveRoomProvider(widget.roomId));
     final currentUser = ref.watch(currentUserProvider);
+    
+    // Debug: log message count to help diagnose missing UI messages
+    // (kept lightweight so it only prints in debug runs)
+    assert(() {
+      // ignore: avoid_print
+      print('🔎 [RoomScreen] roomId=${widget.roomId} messages=${roomState.messages.length} participants=${roomState.participants.length}');
+      return true;
+    }());
+    // Measure bottom controls after layout so overlay can position itself.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _bottomControlsKey.currentContext;
+      if (ctx != null) {
+        final rawH = ctx.size?.height ?? _bottomControlsHeight;
+        // Clamp measured height to reasonable bounds to avoid overlay being pushed off-screen
+        final h = rawH.clamp(56.0, 140.0);
+        if ((h - _bottomControlsHeight).abs() > 1 && mounted) {
+          setState(() {
+            _bottomControlsHeight = h;
+          });
+        }
+      }
+    });
 
     return WillPopScope(
       onWillPop: () async {
@@ -167,15 +196,37 @@ $shareUrl''';
         return false;
       },
       child: Scaffold(
+        resizeToAvoidBottomInset: false,
         backgroundColor: AppColors.backgroundDark,
         body: SafeArea(
-          child: Stack(
+        child: Stack(
+          clipBehavior: Clip.hardEdge,
             children: [
               // Main content
               roomState.isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : roomState.room == null
-                      ? const Center(child: Text('Room not found', style: TextStyle(color: Colors.white)))
+                      ? Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text('Room not found', style: TextStyle(color: Colors.white, fontSize: 16)),
+                              const SizedBox(height: 8),
+                              if (roomState.error != null) ...[
+                                Text('Error: ${roomState.error}', style: const TextStyle(color: Colors.white70)),
+                                const SizedBox(height: 8),
+                              ],
+                              ElevatedButton(
+                                onPressed: () {
+                                  // Retry loading provider
+                                  ref.invalidate(liveRoomProvider(widget.roomId));
+                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Retrying...')));
+                                },
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        )
                       : Column(
                           children: [
                             // Header banner with room illustration
@@ -190,7 +241,7 @@ $shareUrl''';
                               child: OrbitalVisualizer(
                                 isActive: _isLiveKitConnected,
                                 frequencyBands: _frequencyBands,
-                                size: 200,
+                                size: 120,
                               ),
                             ),
                             
@@ -233,11 +284,19 @@ $shareUrl''';
                               child: _buildParticipantsArea(roomState),
                             ),
                             
-                            // Chat section
+                            // Chat section — show message count header for debugging
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              child: Row(
+                                children: [
+                                  Text('Messages: ${roomState.messages.length}', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                                ],
+                              ),
+                            ),
                             _buildChatSection(roomState),
                             
-                            // Bottom controls
-                            _buildBottomControls(roomState, currentUser?.id),
+                            // Bottom controls (measured)
+                            Container(key: _bottomControlsKey, child: _buildBottomControls(roomState, currentUser?.id)),
                           ],
                         ),
               // Floating reactions overlay
@@ -246,6 +305,90 @@ $shareUrl''';
                 emoji: reaction.emoji,
                 startX: reaction.startX,
               )),
+              // Chat input overlay - only show after successfully joined the room
+              if (roomState.isJoined) ...[
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: (MediaQuery.of(context).viewInsets.bottom > 0)
+                      ? (MediaQuery.of(context).viewInsets.bottom + 8)
+                      : (_bottomControlsHeight + 8),
+                  child: SafeArea(
+                    top: false,
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      child: Builder(builder: (ctx) {
+                        final theme = Theme.of(ctx);
+                        final bgColor = theme.brightness == Brightness.dark
+                            ? AppColors.surfaceDark.withOpacity(0.95)
+                            : Colors.white.withOpacity(0.95);
+                        final hintColor = theme.brightness == Brightness.dark
+                            ? Colors.white38
+                            : Colors.black45;
+                        final textColor = theme.colorScheme.onSurface;
+                        return Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 16),
+                          height: 56,
+                          constraints: const BoxConstraints(maxWidth: 900),
+                          decoration: BoxDecoration(
+                            color: bgColor,
+                            borderRadius: BorderRadius.circular(28),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.15),
+                                blurRadius: 6,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Row(
+                            children: [
+                              IconButton(
+                                icon: Icon(Icons.keyboard_arrow_down, color: hintColor),
+                                onPressed: () => FocusScope.of(ctx).unfocus(),
+                                splashRadius: 18,
+                              ),
+                              Expanded(
+                                child: TextField(
+                                  controller: _messageController,
+                                  style: TextStyle(color: textColor, fontSize: 14),
+                                  minLines: 1,
+                                  maxLines: 4,
+                                  textInputAction: TextInputAction.done,
+                                  onEditingComplete: () => FocusScope.of(ctx).unfocus(),
+                                  textAlignVertical: TextAlignVertical.center,
+                                  decoration: InputDecoration(
+                                    hintText: 'Type a message...',
+                                    hintStyle: TextStyle(color: hintColor),
+                                    border: InputBorder.none,
+                                    isCollapsed: true,
+                                  ),
+                                  onSubmitted: (_) => _sendMessage(),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                height: 40,
+                                width: 40,
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: IconButton(
+                                  padding: EdgeInsets.zero,
+                                  icon: const Icon(Icons.send, color: Colors.white, size: 20),
+                                  onPressed: _sendMessage,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -265,7 +408,7 @@ $shareUrl''';
         'https://picsum.photos/seed/${room.category.name.toLowerCase()}1/600/300';
     
     return Container(
-      height: 160,
+      height: 120,
       margin: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
@@ -364,20 +507,26 @@ $shareUrl''';
                   ],
                 ),
                 
-                const Spacer(),
+                const SizedBox(height: 6),
                 
-                // Title
-                Text(
-                  room.title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    shadows: [Shadow(color: Colors.black45, blurRadius: 6)],
+                // Title (scale down to avoid overflow on narrow screens)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      room.title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        shadows: [Shadow(color: Colors.black45, blurRadius: 6)],
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 
@@ -477,16 +626,21 @@ $shareUrl''';
                 color: AppColors.sideA.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text(
-                room.sideALabel!,
-                style: const TextStyle(
-                  color: AppColors.sideA,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 11,
+              child: Center(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    room.sideALabel!,
+                    style: const TextStyle(
+                      color: AppColors.sideA,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
             ),
           ),
@@ -508,16 +662,21 @@ $shareUrl''';
                 color: AppColors.sideB.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text(
-                room.sideBLabel!,
-                style: const TextStyle(
-                  color: AppColors.sideB,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 11,
+              child: Center(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    room.sideBLabel!,
+                    style: const TextStyle(
+                      color: AppColors.sideB,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
             ),
           ),
@@ -659,58 +818,49 @@ $shareUrl''';
   }
 
   Widget _buildChatSection(LiveRoomState state) {
-    return Container(
-      height: 220,
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.3),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      child: Column(
-        children: [
-          // Messages list
-          Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.all(12),
-              itemCount: state.messages.length,
-              itemBuilder: (context, index) {
-                final message = state.messages[index];
-                return _ChatBubble(message: message);
-              },
-            ),
+    // Make the chat section flexible so it can shrink when vertical space is low.
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    if (state.messages.isEmpty) {
+      return Flexible(
+        fit: FlexFit.loose,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.3),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
           ),
-          // Message input
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      hintText: 'Type a message...',
-                      hintStyle: const TextStyle(color: Colors.white38),
-                      filled: true,
-                      fillColor: Colors.white.withOpacity(0.1),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    ),
-                    onSubmitted: (_) => _sendMessage(),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.send, color: AppColors.primary),
-                  onPressed: _sendMessage,
-                ),
-              ],
-            ),
+          child: Center(
+            child: Text('No messages yet', style: TextStyle(color: Colors.white54)),
           ),
-        ],
+        ),
+      );
+    }
+
+    return Flexible(
+      fit: FlexFit.loose,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.3),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        child: ListView.builder(
+          controller: _scrollController,
+          physics: const ClampingScrollPhysics(),
+          reverse: true,
+          // Ensure last messages are visible above the input overlay and bottom controls.
+          padding: EdgeInsets.fromLTRB(
+            12,
+            12,
+            12,
+            // Cap bottom padding so it doesn't create excessive scrollable area
+            math.min(_bottomControlsHeight + _inputOverlayHeight + 16 + bottomInset, MediaQuery.of(context).size.height * 0.45),
+          ),
+          itemCount: state.messages.length,
+          itemBuilder: (context, index) {
+            final message = state.messages[state.messages.length - 1 - index];
+            final key = _messageKeys.putIfAbsent(message.id, () => GlobalKey());
+            return KeyedSubtree(key: key, child: _ChatBubble(message: message));
+          },
+        ),
       ),
     );
   }
@@ -721,7 +871,7 @@ $shareUrl''';
     final currentUser = ref.watch(currentUserProvider);
     final isHost = state.room?.host?.id == currentUser?.id;
     
-    // Can only unmute if: 1) is host, OR 2) hand is raised
+    // Can only unmute if: 1. is host, OR 2. hand is raised
     final canSpeak = isHost || state.handRaised;
     
     return Container(
@@ -732,53 +882,38 @@ $shareUrl''';
           // Mute button - disabled if not allowed to speak
           _ControlButton(
             icon: isMuted ? Icons.mic_off : Icons.mic,
-            label: isMuted 
-                ? (canSpeak ? 'Unmute' : 'Raise Hand') 
-                : 'Mute',
-            color: isMuted 
-                ? (canSpeak ? Colors.red : Colors.grey) 
-                : Colors.green,
-            onTap: canSpeak || !isMuted
-                ? () {
-                    if (isMuted && !canSpeak) {
-                      // Show hint to raise hand first
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Raise your hand first to request to speak'),
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                      return;
-                    }
-                    
-                    // Toggle LiveKit audio
-                    if (_isLiveKitConnected) {
-                      _liveKitService.toggleMicrophone().then((success) {
-                        if (!success && mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(_liveKitService.error ?? 'Failed to enable microphone'),
-                              backgroundColor: Colors.red,
-                              duration: const Duration(seconds: 3),
-                            ),
-                          );
-                        }
-                      });
-                    } else {
-                      // LiveKit not connected - try to reconnect
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Connecting to audio server...'),
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                      _connectToLiveKit();
-                    }
-                    // Also update backend state
-                    ref.read(liveRoomProvider(widget.roomId).notifier).toggleMute(!isMuted);
-                    setState(() {});
+            // Always allow mute/unmute; default is muted (isMuted == true)
+            label: isMuted ? 'Unmute' : 'Mute',
+            color: isMuted ? Colors.red : Colors.green,
+            onTap: () {
+              // Toggle LiveKit audio immediately when possible
+              if (_isLiveKitConnected) {
+                _liveKitService.toggleMicrophone().then((success) {
+                  if (!success && mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(_liveKitService.error ?? 'Failed to toggle microphone'),
+                        backgroundColor: Colors.red,
+                        duration: const Duration(seconds: 3),
+                      ),
+                    );
                   }
-                : null,
+                });
+              } else {
+                // Attempt to connect to LiveKit in background, but still update local/backend state
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Connecting to audio server...'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+                _connectToLiveKit();
+              }
+
+              // Update backend state and local UI
+              ref.read(liveRoomProvider(widget.roomId).notifier).toggleMute(!isMuted);
+              setState(() {});
+            },
           ),
           
           // Hand raise button (not needed for hosts)
@@ -839,14 +974,45 @@ $shareUrl''';
         currentUser: currentUser,
       );
       _messageController.clear();
-      // Scroll to bottom
-      Future.delayed(const Duration(milliseconds: 100), () {
+      // Close keyboard and scroll to bottom after frame so the new message is visible.
+      FocusScope.of(context).unfocus();
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOut,
-          );
+          // Wait a short moment for layout to settle, then ensure the newest message widget is visible.
+          await Future.delayed(const Duration(milliseconds: 120));
+          final roomState = ref.read(liveRoomProvider(widget.roomId));
+          if (roomState.messages.isNotEmpty) {
+            final newest = roomState.messages.last;
+            final key = _messageKeys[newest.id];
+                  if (key != null && key.currentContext != null) {
+              try {
+                await Scrollable.ensureVisible(
+                  key.currentContext!,
+                  alignment: 0.0,
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOut,
+                );
+              } catch (_) {
+                // Fallback: animate to top (reversed list)
+                if (_scrollController.hasClients) {
+                  try {
+                    _scrollController.animateTo(0.0, duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
+                  } catch (_) {
+                    _scrollController.jumpTo(0.0);
+                  }
+                }
+              }
+              } else {
+              // No key found yet; fallback to animating to top
+              if (_scrollController.hasClients) {
+                try {
+                  _scrollController.animateTo(0.0, duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
+                } catch (_) {
+                  _scrollController.jumpTo(0.0);
+                }
+              }
+            }
+          }
         }
       });
     }
@@ -1345,7 +1511,7 @@ class _FloatingReactionWidgetState extends State<_FloatingReactionWidget> with S
       vsync: this,
     );
     
-    _positionAnimation = Tween<double>(begin: 0, end: 400).animate(
+    _positionAnimation = Tween<double>(begin: 0, end: 300).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeOut),
     );
     
@@ -1372,7 +1538,7 @@ class _FloatingReactionWidgetState extends State<_FloatingReactionWidget> with S
       animation: _controller,
       builder: (context, child) {
         return Positioned(
-          bottom: 150 + _positionAnimation.value,
+          bottom: 120 + _positionAnimation.value,
           left: widget.startX + (math.sin(_positionAnimation.value / 50) * 30),
           child: Opacity(
             opacity: _opacityAnimation.value,
