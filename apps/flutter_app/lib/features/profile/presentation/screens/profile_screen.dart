@@ -106,7 +106,16 @@ class ProfileScreen extends ConsumerWidget {
                     title: 'Room History',
                     subtitle: 'View your past rooms',
                     onTap: () {
-                      // TODO: Room history
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Room History'),
+                          content: const Text('Room history is coming soon. You can view past rooms from this screen in a future release.'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+                          ],
+                        ),
+                      );
                     },
                   ),
                   _MenuItem(
@@ -114,7 +123,16 @@ class ProfileScreen extends ConsumerWidget {
                     title: 'Favorite Topics',
                     subtitle: 'Manage your interests',
                     onTap: () {
-                      // TODO: Favorite topics
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Favorite Topics'),
+                          content: const Text('Favorite Topics is coming soon. You can add topics to favorites from room screens.'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+                          ],
+                        ),
+                      );
                     },
                   ),
                   _MenuItem(
@@ -122,7 +140,16 @@ class ProfileScreen extends ConsumerWidget {
                     title: 'Notifications',
                     subtitle: 'Manage notification settings',
                     onTap: () {
-                      // TODO: Notifications
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Notifications'),
+                          content: const Text('Notification settings will be available in a future release. For now, enable system notifications in your device settings.'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+                          ],
+                        ),
+                      );
                     },
                   ),
                   _MenuItem(
@@ -130,7 +157,17 @@ class ProfileScreen extends ConsumerWidget {
                     title: 'Help & Support',
                     subtitle: 'FAQs and contact support',
                     onTap: () {
-                      // TODO: Help
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Help & Support'),
+                          content: const Text('For help, contact support at support@vervetogether.com or visit the About screen for more information.'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+                            TextButton(onPressed: () { Navigator.pop(context); context.push('/settings'); }, child: const Text('Open Settings')),
+                          ],
+                        ),
+                      );
                     },
                   ),
                   _MenuItem(
@@ -138,7 +175,16 @@ class ProfileScreen extends ConsumerWidget {
                     title: 'About',
                     subtitle: 'App info and guidelines',
                     onTap: () {
-                      // TODO: About
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('About Bolaa'),
+                          content: const Text('Bolaa is a voice debate platform. Version 1.0. For privacy and terms, visit the app website.'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+                          ],
+                        ),
+                      );
                     },
                   ),
 

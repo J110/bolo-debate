@@ -340,52 +340,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                               isLoading: _isLoading,
                               onPressed: _login,
                             ),
-                            
-                            const SizedBox(height: 24),
-                            
-                            // Or divider
-                            Row(
-                              children: [
-                                Expanded(child: Divider(color: Colors.grey[300])),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                                  child: Text(
-                                    'or continue with',
-                                    style: GoogleFonts.nunito(
-                                      color: Colors.grey[500],
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ),
-                                Expanded(child: Divider(color: Colors.grey[300])),
-                              ],
-                            ),
-                            
-                            const SizedBox(height: 20),
-                            
-                            // Social buttons
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                _SocialButton(
-                                  icon: Icons.g_mobiledata_rounded,
-                                  color: Colors.red,
-                                  onTap: () {},
-                                ),
-                                const SizedBox(width: 16),
-                                _SocialButton(
-                                  icon: Icons.apple,
-                                  color: Colors.black,
-                                  onTap: () {},
-                                ),
-                                const SizedBox(width: 16),
-                                _SocialButton(
-                                  icon: Icons.facebook_rounded,
-                                  color: const Color(0xFF1877F2),
-                                  onTap: () {},
-                                ),
-                              ],
-                            ),
+                            // Social login intentionally hidden for review build
+                            const SizedBox(height: 8),
                           ],
                         ),
                       ),
