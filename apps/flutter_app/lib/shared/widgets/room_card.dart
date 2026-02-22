@@ -3,6 +3,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bolo_debate/core/theme/app_theme.dart';
 import 'package:bolo_debate/shared/models/room_model.dart';
+import 'package:bolo_debate/shared/utils/image_utils.dart';
 import 'package:bolo_debate/shared/widgets/live_indicator.dart';
 
 // ============================================================================
@@ -328,40 +329,7 @@ const Map<String, List<String>> _categoryFallbackIllustrations = {
 /// Get the best illustration URL for a room
 /// Prefers room.illustrationUrl (from Pixabay API), falls back to local matching
 String _getImageUrl(Room room) {
-  // Use backend-provided illustration URL if available (best option)
-  if (room.illustrationUrl != null && room.illustrationUrl!.isNotEmpty) {
-    return room.illustrationUrl!;
-  }
-  
-  // Fallback: Try local keyword matching for older rooms without illustrationUrl
-  final lowerTitle = room.title.toLowerCase();
-  
-  // Try direct English keyword match
-  for (final entry in _topicIllustrations.entries) {
-    if (lowerTitle.contains(entry.key)) {
-      final images = entry.value;
-      final index = room.id.hashCode.abs() % images.length;
-      return images[index];
-    }
-  }
-  
-  // Try Hindi-to-English translation match
-  for (final hindiEntry in _hindiToEnglish.entries) {
-    if (room.title.contains(hindiEntry.key)) {
-      final englishKeyword = hindiEntry.value;
-      final images = _topicIllustrations[englishKeyword];
-      if (images != null && images.isNotEmpty) {
-        final index = room.id.hashCode.abs() % images.length;
-        return images[index];
-      }
-    }
-  }
-  
-  // Final fallback: category illustrations
-  final categoryImages = _categoryFallbackIllustrations[room.category.name] ?? 
-      _categoryFallbackIllustrations['Business']!;
-  final index = room.id.hashCode.abs() % categoryImages.length;
-  return categoryImages[index];
+  return getCanonicalRoomImageUrl(room);
 }
 
 class RoomCard extends StatelessWidget {
@@ -379,7 +347,7 @@ class RoomCard extends StatelessWidget {
   void _shareRoom() {
     final shareUrl = 'https://bolo-debate.vercel.app/room/${room.id}';
     final statusEmoji = room.isLive ? '🔴 LIVE' : '📅 Upcoming';
-    final shareText = '''🎙️ Join the debate on Bolo!
+    final shareText = '''🎙️ Join the debate on Bolaa!
 
 $statusEmoji
 📢 "${room.title}"
@@ -389,7 +357,7 @@ ${room.sideALabel ?? ''} vs ${room.sideBLabel ?? ''}
 Join now and voice your opinion! 👇
 $shareUrl''';
 
-    Share.share(shareText, subject: 'Join my debate on Bolo!');
+    Share.share(shareText, subject: 'Join my debate on Bolaa!');
   }
 
   String _getTimeText() {
@@ -424,6 +392,14 @@ $shareUrl''';
   Widget build(BuildContext context) {
     final categoryColor = Color(int.parse(room.category.color.replaceFirst('#', '0xFF')));
     final overlayTheme = _getOverlayTheme(room.id);
+    final imageUrl = _getImageUrl(room);
+    final fallbackUrl = 'https://picsum.photos/seed/${room.id}/640/300';
+
+    // Start preloading images after the first frame to improve perceived load speed
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      precacheImage(NetworkImage(imageUrl), context).catchError((_) {});
+      precacheImage(NetworkImage(fallbackUrl), context).catchError((_) {});
+    });
     
     return Card(
       elevation: 4,
@@ -463,11 +439,11 @@ $shareUrl''';
                       -0.3, -0.3, 1.5, 0, -40,  // Boost blue, reduce others, darken
                       0,    0,    0,   1,   0,
                     ]),
-                    child: CachedNetworkImage(
+                    child: _RetryingNetworkImage(
                       imageUrl: _getImageUrl(room),
+                      fallbackUrl: 'https://picsum.photos/seed/${room.id}/640/300',
                       fit: BoxFit.cover,
-                      placeholder: (context, url) => const SizedBox.shrink(),
-                      errorWidget: (context, url, error) => const SizedBox.shrink(),
+                      overlayTheme: overlayTheme,
                     ),
                   ),
                   // STEP 2: Saturation boost layer - makes colors more vibrant/painted
@@ -631,7 +607,11 @@ $shareUrl''';
                   const SizedBox(height: 8),
                   Text(
                     room.title,
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1A1A2E), height: 1.3),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          height: 1.3,
+                        ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -723,6 +703,88 @@ class _StatusBadge extends StatelessWidget {
           color: textColor,
         ),
       ),
+    );
+  }
+}
+
+/// Image widget with retry and fallback behavior.
+class _RetryingNetworkImage extends StatefulWidget {
+  final String imageUrl;
+  final String fallbackUrl;
+  final BoxFit fit;
+  final _OverlayTheme overlayTheme;
+
+  const _RetryingNetworkImage({
+    required this.imageUrl,
+    required this.fallbackUrl,
+    this.fit = BoxFit.cover,
+    required this.overlayTheme,
+  });
+
+  @override
+  State<_RetryingNetworkImage> createState() => _RetryingNetworkImageState();
+}
+
+class _RetryingNetworkImageState extends State<_RetryingNetworkImage> {
+  int _attempt = 0;
+  final int _maxAttempts = 2;
+  bool _useFallback = false;
+  bool _hasError = false;
+
+  String get _currentUrl => _useFallback ? widget.fallbackUrl : widget.imageUrl;
+
+  void _onError() {
+    if (!_useFallback && _attempt < _maxAttempts) {
+      _attempt++;
+      // mark that an error occurred (show broken icon) while we retry
+      if (mounted) setState(() => _hasError = true);
+      // retry after small delay
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) setState(() {});
+      });
+    } else if (!_useFallback) {
+      setState(() {
+        _useFallback = true;
+        _attempt = 0;
+        _hasError = false; // allow fallback to show its own loading state
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CachedNetworkImage(
+      key: ValueKey('img_${_currentUrl}_a$_attempt'),
+      imageUrl: _currentUrl,
+      fit: widget.fit,
+      imageBuilder: (context, imageProvider) {
+        if (_hasError) {
+          // clear error state when image successfully loads
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _hasError = false);
+          });
+        }
+        return Image(image: imageProvider, fit: widget.fit);
+      },
+      placeholder: (context, url) => Container(
+        color: widget.overlayTheme.primary.withOpacity(0.2),
+        child: _hasError
+            ? const Center(child: Icon(Icons.broken_image, color: Colors.white54, size: 36))
+            : const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70)),
+      ),
+      errorWidget: (context, url, error) {
+        // mark error and trigger retry/fallback logic
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() => _hasError = true);
+          _onError();
+        });
+        return Container(
+          color: widget.overlayTheme.primary.withOpacity(0.25),
+          child: const Center(
+            child: Icon(Icons.broken_image, color: Colors.white54, size: 36),
+          ),
+        );
+      },
     );
   }
 }

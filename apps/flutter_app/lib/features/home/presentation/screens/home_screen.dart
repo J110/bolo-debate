@@ -477,6 +477,7 @@ class _CombinedFilterChips extends ConsumerWidget {
                 },
                 selectedColor: AppColors.primary.withOpacity(0.2),
                 checkmarkColor: AppColors.primary,
+                labelStyle: Theme.of(context).textTheme.bodyMedium,
               ),
             ));
             
@@ -497,6 +498,7 @@ class _CombinedFilterChips extends ConsumerWidget {
                   },
                   selectedColor: color.withOpacity(0.2),
                   checkmarkColor: color,
+                  labelStyle: Theme.of(context).textTheme.bodyMedium,
                 ),
               ));
             }
@@ -539,6 +541,7 @@ class _CombinedFilterChips extends ConsumerWidget {
                   },
                   selectedColor: Colors.teal.withOpacity(0.2),
                   checkmarkColor: Colors.teal,
+                  labelStyle: Theme.of(context).textTheme.bodyMedium,
                 ),
               ));
             }

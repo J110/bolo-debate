@@ -270,7 +270,7 @@ class LiveRoomNotifier extends StateNotifier<LiveRoomState> {
           user: User(
             id: 'bot',
             username: 'bolo_bot',
-            displayName: 'Bolo Bot',
+              displayName: 'Bolaa Bot',
             createdAt: DateTime.now(),
           ),
           content: message['payload']['content'],

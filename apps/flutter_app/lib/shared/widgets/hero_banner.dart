@@ -112,7 +112,7 @@ class _HeroBannerState extends State<HeroBanner> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'Bolo',
+                  'Bolaa',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 24,
@@ -433,7 +433,7 @@ class _PageIndicator extends StatelessWidget {
   }
 }
 
-/// Pre-built banner configurations for Bolo Debate
+/// Pre-built banner configurations for Bolaa Debate
 class BoloBanners {
   BoloBanners._();
 

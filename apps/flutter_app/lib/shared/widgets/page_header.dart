@@ -43,6 +43,12 @@ class _PageHeaderState extends State<PageHeader> {
         (widget.fallbackImageUrls.isNotEmpty
             ? widget.fallbackImageUrls[Random().nextInt(widget.fallbackImageUrls.length)]
             : null);
+    // Precache chosen image to speed up display
+    if (_displayImageUrl != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        precacheImage(NetworkImage(_displayImageUrl!), context).catchError((_) {});
+      });
+    }
   }
 
   @override

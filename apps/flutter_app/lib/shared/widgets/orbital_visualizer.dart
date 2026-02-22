@@ -131,7 +131,7 @@ class _CosmicVisualizerPainter extends CustomPainter {
   final List<double> frequencyBands;
   final bool isActive;
   
-  // Color palette - Bolo brand theme
+  // Color palette - Bolaa brand theme
   static const Color primaryTeal = Color(0xFF14B8A6);     // Main brightTeal from logo
   static const Color brightTeal = Color(0xFF2DD4BF);      // Lighter brightTeal
   static const Color orange = Color(0xFFF59E0B);          // Orange speech bubble
@@ -201,7 +201,7 @@ class _CosmicVisualizerPainter extends CustomPainter {
   void _drawNebulaBackground(Canvas canvas, Offset center, double maxRadius) {
     final baseIntensity = 0.08 + (audioLevel * 0.12) + (pulseValue * 0.04);
     
-    // Multi-color nebula gradient - Bolo theme
+    // Multi-color nebula gradient - Bolaa theme
     final gradient = RadialGradient(
       colors: [
         deepPurple.withOpacity(baseIntensity * 0.8),

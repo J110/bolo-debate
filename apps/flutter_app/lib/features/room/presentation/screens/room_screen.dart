@@ -144,7 +144,7 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
     if (room == null) return;
 
     final shareUrl = 'https://bolo-debate.vercel.app/room/${widget.roomId}';
-    final shareText = '''🎙️ Join the debate on Bolo!
+    final shareText = '''🎙️ Join the debate on Bolaa!
 
 📢 "${room.title}"
 
@@ -153,7 +153,7 @@ ${room.sideALabel} vs ${room.sideBLabel}
 Join now and voice your opinion! 👇
 $shareUrl''';
 
-    Share.share(shareText, subject: 'Join my debate on Bolo!');
+    Share.share(shareText, subject: 'Join my debate on Bolaa!');
   }
 
   @override
@@ -1038,7 +1038,7 @@ $shareUrl''';
               // Send email
               final subject = Uri.encodeComponent('Issue Report: ${room.title}');
               final body = Uri.encodeComponent('''
-Issue Report for Bolo Debate
+Issue Report for Bolaa Debate
 
 Room: ${room.title}
 Room ID: ${room.id}
@@ -1245,7 +1245,7 @@ class _ChatBubble extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  message.isBot ? 'Bolo Bot' : message.user.displayName,
+                  message.isBot ? 'Bolaa Bot' : message.user.displayName,
                   style: TextStyle(
                     color: message.isBot ? AppColors.info : Colors.white70,
                     fontSize: 10,

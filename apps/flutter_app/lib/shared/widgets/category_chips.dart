@@ -33,6 +33,7 @@ class CategoryChips extends ConsumerWidget {
                     },
                     selectedColor: AppColors.primary.withOpacity(0.2),
                     checkmarkColor: AppColors.primary,
+                    labelStyle: Theme.of(context).textTheme.bodyMedium,
                   ),
                 );
               }
@@ -53,6 +54,7 @@ class CategoryChips extends ConsumerWidget {
                   },
                   selectedColor: color.withOpacity(0.2),
                   checkmarkColor: color,
+                  labelStyle: Theme.of(context).textTheme.bodyMedium,
                 ),
               );
             },

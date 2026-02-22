@@ -134,7 +134,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                 children: [
                   const Spacer(flex: 2),
                   
-                  // Bolo Logo with glow
+                  // Bolaa Logo with glow
                   Container(
                     width: 180,
                     height: 180,
@@ -171,7 +171,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                     ),
                   ),
                   Text(
-                    'Bolo',
+                    'Bolaa',
                     style: GoogleFonts.nunito(
                       fontSize: 52,
                       fontWeight: FontWeight.bold,

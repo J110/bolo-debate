@@ -9,6 +9,7 @@ import 'package:bolo_debate/features/home/presentation/providers/data_providers.
 import 'package:bolo_debate/shared/models/room_model.dart';
 import 'package:bolo_debate/shared/widgets/page_header.dart';
 import 'package:bolo_debate/shared/widgets/live_indicator.dart';
+import 'package:bolo_debate/shared/utils/image_utils.dart';
 
 class RoomDetailScreen extends ConsumerStatefulWidget {
   final String roomId;
@@ -25,7 +26,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
   void _shareRoom(Room room) {
     final shareUrl = 'https://bolo-debate.vercel.app/room/${room.id}';
     final statusEmoji = room.isLive ? '🔴 LIVE' : '📅 Scheduled';
-    final shareText = '''🎙️ Join the debate on Bolo!
+    final shareText = '''🎙️ Join the debate on Bolaa!
 
 $statusEmoji
 📢 "${room.title}"
@@ -37,7 +38,7 @@ ${room.description ?? ''}
 Join now and voice your opinion! 👇
 $shareUrl''';
 
-    Share.share(shareText, subject: 'Join my debate on Bolo!');
+    Share.share(shareText, subject: 'Join my debate on Bolaa!');
   }
 
   void _onSideSelected(BuildContext context, Room room, String side) {
@@ -90,7 +91,7 @@ $shareUrl''';
           if (room == null) {
             return const Center(child: Text('Room not found'));
           }
-          return _buildContent(context, room);
+    return _buildContent(context, room);
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
@@ -217,7 +218,7 @@ $shareUrl''';
             categoryIcon: room.category.icon,
             categoryColor: categoryColor,
             isLive: room.isLive,
-            illustrationUrl: room.illustrationUrl,
+            illustrationUrl: getCanonicalRoomImageUrl(room, width: 600, height: 300),
             onBack: () => Navigator.of(context).pop(),
             actions: [
               IconButton(

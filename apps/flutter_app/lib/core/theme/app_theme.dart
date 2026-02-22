@@ -33,7 +33,7 @@ class ThemeModeNotifier extends StateNotifier<ThemeMode> {
 class AppColors {
   AppColors._();
 
-  // Primary colors - Teal from Bolo logo
+  // Primary colors - Teal from Bolaa logo
   static const Color primary = Color(0xFF14B8A6);
   static const Color primaryLight = Color(0xFF2DD4BF);
   static const Color primaryDark = Color(0xFF0D9488);
