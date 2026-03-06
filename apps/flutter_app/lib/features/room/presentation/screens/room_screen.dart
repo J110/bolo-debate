@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform, kIsWeb;
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
@@ -27,6 +29,7 @@ class RoomScreen extends ConsumerStatefulWidget {
 }
 
 class _RoomScreenState extends ConsumerState<RoomScreen> {
+  static const MethodChannel _nativeShareChannel = MethodChannel('bolo/native_share');
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
   Timer? _timer;
@@ -145,22 +148,64 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
     super.dispose();
   }
 
-  void _shareRoom() {
+  Future<void> _shareRoom() async {
     final roomState = ref.read(liveRoomProvider(widget.roomId));
     final room = roomState.room;
     if (room == null) return;
 
-    final shareUrl = 'https://bolo-debate.vercel.app/room/${widget.roomId}';
+    final shareUrl = 'https://bolaa.app/#/room/${widget.roomId}';
+    final hasSides = (room.sideALabel?.trim().isNotEmpty ?? false) &&
+        (room.sideBLabel?.trim().isNotEmpty ?? false);
+    final sidesLine = hasSides ? '\n${room.sideALabel} vs ${room.sideBLabel}\n' : '\n';
     final shareText = '''🎙️ Join the debate on Bolaa!
 
 📢 "${room.title}"
-
-${room.sideALabel} vs ${room.sideBLabel}
+$sidesLine
 
 Join now and voice your opinion! 👇
 $shareUrl''';
+    final isApple = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+    if (isApple) {
+      try {
+        await _nativeShareChannel.invokeMethod('shareText', {
+          'text': shareText,
+          'subject': 'Join my debate on Bolaa!',
+        });
+      } catch (e) {
+        // Last-resort fallback
+        await Clipboard.setData(ClipboardData(text: shareText));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Share failed, invite copied instead: $e')),
+          );
+        }
+      }
+      return;
+    }
 
-    Share.share(shareText, subject: 'Join my debate on Bolaa!');
+    try {
+      // Deterministic non-zero origin always inside current screen bounds.
+      // This avoids iOS zero-rect errors from transient/disposed render boxes.
+      final size = MediaQuery.of(context).size;
+      final safeOrigin = Rect.fromLTWH(
+        (size.width / 2).clamp(1.0, size.width - 1),
+        (size.height / 2).clamp(1.0, size.height - 1),
+        1,
+        1,
+      );
+
+      await Share.share(
+        shareText,
+        subject: 'Join my debate on Bolaa!',
+        sharePositionOrigin: safeOrigin,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to open share sheet: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -1136,7 +1181,20 @@ $shareUrl''';
                 title: const Text('Share Room', style: TextStyle(color: Colors.white)),
                 onTap: () {
                   Navigator.pop(context);
-                  _shareRoom();
+                  // Open share sheet after bottom sheet dismiss completes.
+                  Future.delayed(const Duration(milliseconds: 220), () async {
+                    if (mounted) {
+                      try {
+                        await _shareRoom();
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Unable to open share: $e')),
+                          );
+                        }
+                      }
+                    }
+                  });
                 },
               ),
               ListTile(

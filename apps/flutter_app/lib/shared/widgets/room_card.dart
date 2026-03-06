@@ -345,14 +345,16 @@ class RoomCard extends StatelessWidget {
   });
 
   void _shareRoom() {
-    final shareUrl = 'https://bolo-debate.vercel.app/room/${room.id}';
+    final shareUrl = 'https://bolaa.app/#/room/${room.id}';
     final statusEmoji = room.isLive ? '🔴 LIVE' : '📅 Upcoming';
+    final hasSides = (room.sideALabel?.trim().isNotEmpty ?? false) &&
+        (room.sideBLabel?.trim().isNotEmpty ?? false);
+    final sidesLine = hasSides ? '\n${room.sideALabel} vs ${room.sideBLabel}\n' : '\n';
     final shareText = '''🎙️ Join the debate on Bolaa!
 
 $statusEmoji
 📢 "${room.title}"
-
-${room.sideALabel ?? ''} vs ${room.sideBLabel ?? ''}
+$sidesLine
 
 Join now and voice your opinion! 👇
 $shareUrl''';

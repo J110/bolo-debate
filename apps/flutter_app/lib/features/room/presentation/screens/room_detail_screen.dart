@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform, kIsWeb;
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
@@ -21,24 +23,45 @@ class RoomDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
+  static const MethodChannel _nativeShareChannel = MethodChannel('bolo/native_share');
   String? _selectedSide;
 
-  void _shareRoom(Room room) {
-    final shareUrl = 'https://bolo-debate.vercel.app/room/${room.id}';
+  Future<void> _shareRoom(Room room) async {
+    final shareUrl = 'https://bolaa.app/#/room/${room.id}';
     final statusEmoji = room.isLive ? '🔴 LIVE' : '📅 Scheduled';
+    final hasSides = (room.sideALabel?.trim().isNotEmpty ?? false) &&
+        (room.sideBLabel?.trim().isNotEmpty ?? false);
+    final sidesLine = hasSides ? '\n${room.sideALabel} vs ${room.sideBLabel}\n' : '\n';
     final shareText = '''🎙️ Join the debate on Bolaa!
 
 $statusEmoji
 📢 "${room.title}"
-
-${room.sideALabel} vs ${room.sideBLabel}
+$sidesLine
 
 ${room.description ?? ''}
 
 Join now and voice your opinion! 👇
 $shareUrl''';
 
-    Share.share(shareText, subject: 'Join my debate on Bolaa!');
+    final isApple = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+    if (isApple) {
+      try {
+        await _nativeShareChannel.invokeMethod('shareText', {
+          'text': shareText,
+          'subject': 'Join my debate on Bolaa!',
+        });
+      } catch (e) {
+        await Clipboard.setData(ClipboardData(text: shareText));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Share failed, invite copied instead: $e')),
+          );
+        }
+      }
+      return;
+    }
+
+    await Share.share(shareText, subject: 'Join my debate on Bolaa!');
   }
 
   void _onSideSelected(BuildContext context, Room room, String side) {
@@ -223,7 +246,17 @@ $shareUrl''';
             actions: [
               IconButton(
                 icon: const Icon(Icons.share, color: Colors.white),
-                onPressed: () => _shareRoom(room),
+                onPressed: () async {
+                  try {
+                    await _shareRoom(room);
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Unable to share: $e')),
+                      );
+                    }
+                  }
+                },
               ),
             ],
           ),
